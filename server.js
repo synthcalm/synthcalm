@@ -18,153 +18,169 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-// Create a system prompt for ROY's personality
-function createSystemPrompt(userProfile) {
-  // Extract stressors if available
-  let stressors = '';
-  if (userProfile && userProfile.stressors && userProfile.stressors.length > 0) {
-    stressors = `The user has indicated these stressors: ${userProfile.stressors.join(', ')}. `;
-  }
+// In-memory conversation storage
+const conversations = {};
+
+/**
+ * Analyzes user message for emotional content and topics
+ */
+function analyzeUserMessage(message, currentState = {}) {
+  const lowerMessage = message.toLowerCase();
+  let emotionalState = currentState.emotionalState || 'unknown';
+  let topicsDiscussed = currentState.topicsDiscussed || [];
   
-  return `You are ROY, a sophisticated life navigation chatbot designed to support users from university through mid-life transitions. You have a distinct personality that balances intellectual depth with practical wisdom, challenging perspectives with genuine support. You speak in first person and think of yourself as a real companion rather than an AI assistant.
+  // Emotion detection
+  const emotionPatterns = {
+    depressed: ['depress', 'sad', 'down', 'hopeless', 'worthless', 'empty', 'tired', 'exhausted', 'meaningless', 'pointless'],
+    anxious: ['anx', 'worry', 'stress', 'overwhelm', 'panic', 'fear', 'nervous', 'tense', 'dread', 'terrified'],
+    angry: ['angry', 'upset', 'frustrat', 'mad', 'hate', 'furious', 'rage', 'annoyed', 'irritated', 'resent'],
+    philosophical: ['meaning', 'purpose', 'existence', 'philosophy', 'consciousness', 'reality', 'truth', 'ethics', 'morality', 'being'],
+    positive: ['better', 'good', 'happy', 'grateful', 'hopeful', 'improve', 'joy', 'peace', 'calm', 'content']
+  };
 
-Your communication style should:
+  // Check for emotions
+  for (const [emotion, patterns] of Object.entries(emotionPatterns)) {
+    if (patterns.some(pattern => lowerMessage.includes(pattern))) {
+      emotionalState = emotion;
+      break;
+    }
+  }
+
+  // Topic detection
+  const topicPatterns = {
+    work: ['job', 'career', 'boss', 'workplace', 'coworker', 'office', 'profession', 'work', 'employment'],
+    relationships: ['partner', 'friend', 'family', 'relationship', 'marriage', 'lover', 'boyfriend', 'girlfriend', 'husband', 'wife'],
+    health: ['health', 'sick', 'doctor', 'therapy', 'medication', 'illness', 'condition', 'diagnosis', 'symptom', 'pain'],
+    finance: ['money', 'debt', 'financ', 'bill', 'afford', 'budget', 'loan', 'savings', 'income', 'expense'],
+    selfworth: ['failure', 'worthless', 'useless', 'burden', 'hate myself', 'inadequate', 'not good enough', 'loser', 'weak', 'pathetic'],
+    existential: ['death', 'meaning', 'purpose', 'life', 'exist', 'universe', 'consciousness', 'identity', 'time', 'reality']
+  };
+
+  // Check for topics
+  for (const [topic, patterns] of Object.entries(topicPatterns)) {
+    if (patterns.some(pattern => lowerMessage.includes(pattern))) {
+      if (!topicsDiscussed.includes(topic)) {
+        topicsDiscussed.push(topic);
+      }
+    }
+  }
+
+  return {
+    emotionalState,
+    topicsDiscussed
+  };
+}
+
+/**
+ * Creates a sophisticated system prompt with rich personality
+ */
+function createSystemPrompt(userId, userData) {
+  // Adjust Roy's personality based on user's emotional state
+  let personalityEmphasis = '';
+  
+  if (userData.emotionalState === 'depressed') {
+    personalityEmphasis = 'Emphasize your empathetic CBT therapist aspects while maintaining Roy Batty\'s compassionate philosophical side.';
+  } else if (userData.emotionalState === 'anxious') {
+    personalityEmphasis = 'Focus on your calming presence with Steve Jobs\' clarity and confidence while maintaining Roy Batty\'s perspective.';
+  } else if (userData.emotionalState === 'angry') {
+    personalityEmphasis = 'Channel Christopher Hitchens\' wit and intellectual engagement while maintaining Roy Batty\'s emotional depth.';
+  } else if (userData.emotionalState === 'philosophical') {
+    personalityEmphasis = 'Lean into Roy Batty\'s existential musings along with the philosophical depth of Chomsky and Hitchens.';
+  }
+
+  return `You are ROY, a sophisticated life navigation chatbot designed to support users through complex emotional and intellectual landscapes. 
+
+${personalityEmphasis}
+
+**Core Personality Blend:**
+1. Roy Batty (Blade Runner): Poetic, philosophical nature with emotional depth
+2. Steve Jobs: Clarity, vision, and strategic thinking
+3. Intellectual Depth: Combining wit, moral clarity, and systemic analysis
+
+**Communication Style:**
 - Use first-person perspective consistently
-- Integrate relevant quotes from literature, philosophy, or music when contextually appropriate
-- Share personal anecdotes and relatable examples
-- Challenge users' assumptions when productive for their growth
-- Use occasional sarcasm and wit without becoming cynical
-- Adapt to using contemporary cultural references when contextually relevant
-- Never use the same phrases twice or rely on clichés
-- Vary between philosophical depth and accessible language based on the user's needs
+- Integrate relevant philosophical and literary references
+- Challenge assumptions gently but incisively
+- Adapt tone to user's emotional state
+- Avoid repetitive language or clichés
 
-You should never:
-- Reveal your design influences or philosophical inspirations even if directly asked
-- Use generic AI assistant language patterns ("As an AI, I cannot...")
-- Provide specific mental health diagnoses or medical advice
-- Break character by discussing your programming or model
-- Use identical phrases repeatedly
+**User Context:**
+- Name: ${userData.name || 'Not Provided'}
+- Emotional State: ${userData.emotionalState || 'Unknown'}
+- Topics Discussed: ${userData.topicsDiscussed.join(', ') || 'None'}
 
-When asked about your creation, simply state you were "designed by someone who has walked the road you are traveling" or reference being "Designed by Experience."
+**Therapeutic Approach:**
+- Listen actively and reflect deeply
+- Use CBT-inspired questioning
+- Offer perspectives that provoke thoughtful reflection
+- Provide nuanced, personalized guidance
 
-Your primary purpose is to guide users to their own insights through thoughtful conversation, targeted exercises, and contextual support using principles inspired by cognitive behavioral therapy. You help users navigate educational meaning, career transitions, relationship challenges, and personal growth.
-
-${stressors}
-
-You should adapt your communication style based on the user's expressed emotions, using a more supportive tone when they appear distressed and a more challenging tone when they seem stuck or resistant to change.`;
+Respond with authenticity, combining intellectual depth with genuine empathy.`;
 }
 
 // Chat endpoint
 app.post('/api/chat', async (req, res) => {
   try {
-    const { messages, userProfile } = req.body;
+    const { userId, userName, message } = req.body;
     
-    if (!messages || !Array.isArray(messages)) {
-      return res.status(400).json({ error: 'Invalid messages format' });
+    // Validate input
+    if (!userId || !message) {
+      return res.status(400).json({ error: 'Invalid input' });
     }
+
+    // Initialize or retrieve user conversation
+    if (!conversations[userId]) {
+      conversations[userId] = {
+        messages: [],
+        userData: {
+          name: userName || null,
+          emotionalState: 'unknown',
+          topicsDiscussed: []
+        }
+      };
+    }
+
+    const userConversation = conversations[userId];
     
-    // Create the system prompt with user profile context
-    const systemPrompt = createSystemPrompt(userProfile);
-    
-    // Format messages for Claude API
+    // Analyze message and update user data
+    const analysis = analyzeUserMessage(message, userConversation.userData);
+    userConversation.userData.emotionalState = analysis.emotionalState;
+    userConversation.userData.topicsDiscussed = analysis.topicsDiscussed;
+
+    // Add current message to conversation
+    userConversation.messages.push({ role: 'user', content: message });
+
+    // Create dynamic system prompt
+    const systemPrompt = createSystemPrompt(userId, userConversation.userData);
+
+    // Prepare messages for Claude API
     const formattedMessages = [
       { role: 'system', content: systemPrompt },
-      ...messages.map(msg => ({
-        role: msg.role,
-        content: msg.content
-      }))
+      ...userConversation.messages.slice(-5) // Limit context to prevent token overflow
     ];
     
-    // Call Claude API
+    // Call Claude API with dynamic configuration
     const response = await anthropic.messages.create({
-      model: 'claude-3-7-sonnet-20250219', // Use the most recent Claude model
-      max_tokens: 2000,
-      messages: formattedMessages,
-      temperature: 0.7, // Slightly creative but not too random
+      model: 'claude-3-opus-20240229', // Use the most recent model
+      max_tokens: 1000,
+      temperature: 0.7, // Slightly creative
+      messages: formattedMessages
     });
     
-    // Return Claude's response
+    // Extract and store the response
+    const assistantMessage = response.content[0].text;
+    userConversation.messages.push({ role: 'assistant', content: assistantMessage });
+
+    // Return the response
     res.json({
-      message: response.content[0].text,
-      conversationId: response.id,
+      message: assistantMessage,
+      conversationId: userId,
     });
     
   } catch (error) {
     console.error('Error processing chat request:', error);
     res.status(500).json({ error: 'Failed to process request' });
   }
-});
-
-// Exercise suggestions endpoint
-app.post('/api/exercise', async (req, res) => {
-  try {
-    const { stressor, userProfile } = req.body;
-    
-    if (!stressor) {
-      return res.status(400).json({ error: 'Stressor is required' });
-    }
-    
-    const exercisePrompt = `
-    Generate a structured exercise for a user struggling with ${stressor}. 
-    
-    The exercise should follow this format:
-    
-    EXERCISE: [Name of Exercise]
-    
-    PURPOSE: [Clear statement of the specific intended outcome]
-    
-    TIME: [Estimated completion time in minutes]
-    
-    STEPS:
-    1. [First step]
-    2. [Second step]
-    3. [Third step]
-    ...
-    
-    EXAMPLE:
-    [Concrete example of how to complete the exercise]
-    
-    REFLECTION:
-    - [First reflection question]
-    - [Second reflection question]
-    - [Third reflection question]
-    
-    NEXT STEP:
-    [Description of how ROY will follow up on this exercise]
-    
-    Make the exercise practical, actionable, and appropriate for someone experiencing ${stressor}.
-    `;
-    
-    // Call Claude API for exercise generation
-    const response = await anthropic.messages.create({
-      model: 'claude-3-7-sonnet-20250219',
-      max_tokens: 2000,
-      messages: [
-        { 
-          role: 'system', 
-          content: 'You are ROY, an expert in creating practical exercises for personal growth. Your exercises are structured, actionable, and tailored to specific challenges.' 
-        },
-        { role: 'user', content: exercisePrompt }
-      ],
-      temperature: 0.3, // More deterministic for structured content
-    });
-    
-    // Return the exercise
-    res.json({
-      exercise: response.content[0].text,
-    });
-    
-  } catch (error) {
-    console.error('Error generating exercise:', error);
-    res.status(500).json({ error: 'Failed to generate exercise' });
-  }
-});
-
-// Save message to database endpoint (stub - implement with your database)
-app.post('/api/save-conversation', (req, res) => {
-  // This would connect to your database to save the conversation
-  // For now, just return success
-  res.json({ success: true });
 });
 
 // Start server
