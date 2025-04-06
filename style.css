@@ -35,7 +35,7 @@ canvas#waveform {
   margin: 10px 0;
 }
 
-textarea, select, .button {
+textarea, .button, select#styleSelect {
   width: 100%;
   background: #000;
   border: 2px solid #0ff;
@@ -44,9 +44,11 @@ textarea, select, .button {
   margin-bottom: 10px;
   text-align: center;
   box-sizing: border-box;
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
 }
 
-/* Specific styles for textarea to ensure it fits with borders */
+/* Specific styles for textarea */
 textarea#activityInput {
   max-width: 100%;
   min-height: 60px;
@@ -55,11 +57,11 @@ textarea#activityInput {
   font-size: 14px;
 }
 
-/* Style dropdown fix: center text on all browsers including iPad */
+/* Styled dropdown to look like buttons */
 select#styleSelect {
   text-align: center;
   text-align-last: center;
-  -webkit-text-align-last: center; /* For iPadOS Safari */
+  -webkit-text-align-last: center; /* Safari (iOS/iPad) */
   -moz-text-align-last: center;
   -webkit-appearance: none;
   -moz-appearance: none;
@@ -67,19 +69,20 @@ select#styleSelect {
   background-position: right 10px center;
   background-repeat: no-repeat;
   padding-right: 30px;
-  padding-left: 10px; /* Ensure padding is balanced */
-  font-family: 'Courier New', monospace;
-  font-size: 14px;
-  line-height: normal; /* Ensure consistent line height */
-  display: block; /* Ensure consistent rendering */
-  box-sizing: border-box; /* Ensure padding doesn't affect width */
+  padding-left: 10px;
+  line-height: normal;
+  display: block;
+  box-sizing: border-box;
+  cursor: pointer;
 }
 
-/* Ensure options are also centered */
+/* Dropdown options style */
 select#styleSelect option {
   text-align: center;
   font-family: 'Courier New', monospace;
   font-size: 14px;
+  background: #000;
+  color: #0ff;
 }
 
 .button-group {
@@ -92,11 +95,10 @@ select#styleSelect option {
   cursor: pointer;
 }
 
-/* Recording class for Start Voice button */
 .button.recording {
   background: #000 !important;
-  border-color: #ff00ff !important; /* Magenta border */
-  color: #0ff !important; /* Keep text cyan */
+  border-color: #ff00ff !important;
+  color: #0ff !important;
 }
 
 .button:hover {
@@ -137,7 +139,6 @@ select#styleSelect option {
   height: 20px;
 }
 
-/* Mood History entries */
 #moodHistory {
   margin-top: 10px;
   font-size: 13px;
