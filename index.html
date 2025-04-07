@@ -8,7 +8,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 </head>
 <body>
-  <!-- force re-deploy -->
   <div class="container">
     <p>1. Press the "Start Voice" button and say what you feel. You have 60 Seconds. 2. Choose an art style. 3. Generate Image.</p>
 
@@ -43,7 +42,6 @@
         <option value="minimalism">Minimalism</option>
       </select>
       <button class="button" id="generate">Generate Image</button>
-      <button class="button" id="saveButton">Save</button>
       <button class="button" onclick="window.location.href='https://synthcalm.com'">Return to SynthCalm</button>
     </div>
 
@@ -56,16 +54,13 @@
     <div id="moodHistory"></div>
   </div>
 
-  <script src="/synthcalm/script.js"></script>
-
-  <!-- Supabase Setup -->
   <script>
     const supabase = supabase.createClient(
       'https://ysuaedvcfplzzfcmmkgb.supabase.co',
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzdWFlZHZjZnBsenpmY21ta2diIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI5NTk5MDEsImV4cCI6MjA1ODUzNTkwMX0.yNG-z5iMK2pDmxzTUoArJOivbGXTfSve2HyHH7YWgzc'
     );
 
-    document.getElementById("saveButton").addEventListener("click", async () => {
+    document.getElementById("generate").addEventListener("click", async () => {
       const moodText = document.getElementById("activityInput").value;
 
       const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -77,4 +72,35 @@
       const { data, error } = await supabase.from("mia_logs").insert([
         {
           user_id: user.id,
-          mood_text_
+          mood_text: moodText
+        }
+      ]).select();
+
+      if (error) {
+        console.error("Insert error:", error.message);
+        alert("Failed to save mood.");
+      } else {
+        const entry = data[0];
+        const entryEl = document.createElement("div");
+        entryEl.className = "history-entry";
+        entryEl.innerHTML = `
+          <span>${new Date(entry.created_at).toLocaleString()} — ${entry.mood_text}</span>
+          <button onclick="deleteMood(${entry.id}, this)">Delete</button>
+        `;
+        document.getElementById("moodHistory").appendChild(entryEl);
+      }
+    });
+
+    async function deleteMood(id, buttonEl) {
+      const { error } = await supabase.from("mia_logs").delete().eq("id", id);
+      if (error) {
+        alert("Delete failed.");
+      } else {
+        buttonEl.parentElement.remove();
+      }
+    }
+  </script>
+
+  <script src="/synthcalm/script.js"></script>
+</body>
+</html>
