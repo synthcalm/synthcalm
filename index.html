@@ -11,11 +11,11 @@
             color: magenta;
         }
 
-        #clear.active {
-            border-color: yellow;
-        }
-
-        #styleSelect.active {
+        #clear.active,
+        #styleSelect.active,
+        #generate.active,
+        #saveMood.active,
+        #synthCalmHome.active {
             border-color: yellow;
         }
 
@@ -24,12 +24,8 @@
             color: black;
         }
 
-        #saveMood.active {
-            border-color: magenta;
-        }
-
-        #synthCalmHome.active{
-            border-color: magenta;
+        #styleSelect:focus {
+            outline: 2px solid yellow;
         }
     </style>
 </head>
@@ -37,19 +33,19 @@
 <div class="container">
     <p>1. Press the "Start Voice" button and say what you feel. You have 60 Seconds. 2. Choose an art style. 3. Generate Image.</p>
 
-    <canvas id="waveform"></canvas>
+    <canvas id="waveform" aria-label="Waveform Visualization"></canvas>
 
     <div class="footer-bar">
         <div id="dateTimeDisplay" class="seven-segment"></div>
         <div id="countdownDisplay" class="seven-segment">00:60</div>
     </div>
 
-    <textarea id="activityInput" rows="4" placeholder="Describe your mood... (editable after recording)"></textarea>
+    <textarea id="activityInput" rows="4" placeholder="Describe your mood... (editable after recording)" aria-label="Mood description"></textarea>
 
     <div class="button-group">
-        <button class="button" id="startVoice">Start Voice</button>
-        <button class="button" id="clear">Clear</button>
-        <select id="styleSelect">
+        <button class="button" id="startVoice" aria-label="Start voice recording">Start Voice</button>
+        <button class="button" id="clear" aria-label="Clear input and image">Clear</button>
+        <select id="styleSelect" aria-label="Choose art style">
             <option value="none" selected disabled>Choose Style</option>
             <option value="photo">Hyper-realistic Photo</option>
             <option value="anime">Japanese Anime Style</option>
@@ -67,16 +63,16 @@
             <option value="digital-painting">Digital Painting</option>
             <option value="minimalism">Minimalism</option>
         </select>
-        <button class="button" id="generate">Generate Image</button>
-        <button class="button" id="saveMood">Save</button>
-        <button class="button" id="synthCalmHome" onclick="window.location.href='https://synthcalm.com'">SynthCalm Home</button>
+        <button class="button" id="generate" aria-label="Generate image">Generate Image</button>
+        <button class="button" id="saveMood" aria-label="Save mood">Save</button>
+        <button class="button" id="synthCalmHome" onclick="window.location.href='https://synthcalm.com'" aria-label="Go to SynthCalm Home">SynthCalm Home</button>
     </div>
 
     <hr style="border: none; border-top: 1px solid #0ff; margin: 20px 0;" />
     <p style="color:#0ff;font-size:14px;text-align:center;">Mood History</p>
 
     <div class="image-frame">
-        <img id="generatedImage" style="display:none; max-width:100%;" />
+        <img id="generatedImage" style="display:none; max-width:100%;" alt="Generated Image" />
     </div>
 
     <div id="moodHistory" style="min-height: 100px;"></div>
@@ -122,7 +118,7 @@
 
         // Draw Grid Lines (Yellow)
         ctx.strokeStyle = "#ffff00";
-        ctx.lineWidth = 0.5; // Thinner grid lines
+        ctx.lineWidth = 0.5;
 
         // Vertical Grid Lines
         for (let i = canvas.width / 10; i < canvas.width; i += canvas.width / 10) {
@@ -158,15 +154,7 @@
     }
     drawWaveform();
 
-    startBtn.addEventListener("click", async () => {
-        console.log("Start Voice button clicked."); // Debugging
-
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) {
-            alert("SpeechRecognition not supported in this browser. Please use Chrome or Edge.");
-            return;
-        }
-
+    async function startRecording() {
         if (isRecording) {
             stopRecording();
             return;
@@ -174,8 +162,6 @@
 
         try {
             micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            console.log("Microphone stream obtained:", micStream); // Debugging
-
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             source = audioCtx.createMediaStreamSource(micStream);
             analyser = audioCtx.createAnalyser();
@@ -183,16 +169,8 @@
             dataArray = new Uint8Array(analyser.fftSize);
             source.connect(analyser);
             drawWaveform();
-        } catch (err) {
-            console.error("Microphone access denied:", err);
-            alert("Failed to access microphone: " + err.message);
-            return;
-        }
 
-        try {
-            recognition = new SpeechRecognition();
-            console.log("Speech recognition initialized:", recognition); // Debugging
-
+            recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
             recognition.continuous = true;
             recognition.interimResults = true;
             recognition.lang = 'en-US';
@@ -200,7 +178,6 @@
             recognition.onresult = (event) => {
                 const transcript = Array.from(event.results).map(r => r[0].transcript).join('');
                 document.getElementById("activityInput").value = transcript;
-                console.log("Speech recognition result:", transcript);
             };
 
             recognition.onerror = (event) => {
@@ -211,27 +188,24 @@
             };
 
             recognition.onend = () => {
-                console.log("Speech recognition ended");
                 if (isRecording) recognition.start();
             };
 
             recognition.start();
-            console.log("Speech recognition started."); // Debugging
 
             isRecording = true;
             startBtn.classList.add("recording");
             startBtn.textContent = "Stop Voice";
             startCountdown();
+
         } catch (err) {
-            console.error("Speech recognition failed to start:", err);
-            alert("Failed to start speech recognition: " + err.message);
+            console.error("Recording failed:", err);
+            alert("Failed to start recording: " + err.message);
             stopRecording();
         }
-    });
+    }
 
     function stopRecording() {
-        console.log("Stop recording called."); // Debugging
-
         if (recognition) recognition.stop();
         if (micStream) micStream.getTracks().forEach(track => track.stop());
         if (audioCtx) audioCtx.close();
@@ -252,6 +226,8 @@
             if (seconds <= 0) stopRecording();
         }, 1000);
     }
+
+    startBtn.addEventListener("click", startRecording);
 
     // === Image Generation ===
     document.getElementById("generate").addEventListener("click", async () => {
@@ -275,19 +251,16 @@
         document.getElementById("styleSelect").classList.remove("active");
     });
 
-    document.getElementById("saveMood").addEventListener("click",()=>{
-        document.getElementById("saveMood").classList.add("active");
-        setTimeout(()=>{
-            document.getElementById("saveMood").classList.remove("active");
-        },500)
-    });
+    function addButtonActiveFeedback(elementId) {
+        const element = document.getElementById(elementId);
+        element.classList.add("active");
+        setTimeout(() => element.classList.remove("active"), 500);
+    }
 
-    document.getElementById("synthCalmHome").addEventListener("click",()=>{
-        document.getElementById("synthCalmHome").classList.add("active");
-        setTimeout(()=>{
-            document.getElementById("synthCalmHome").classList.remove("active");
-        },500)
-    })
+    document.getElementById("saveMood").addEventListener("click", () => addButtonActiveFeedback("saveMood"));
+    document.getElementById("synthCalmHome").addEventListener("click", () => addButtonActiveFeedback("synthCalmHome"));
+    document.getElementById("generate").addEventListener("click", () => addButtonActiveFeedback("generate"));
+
 </script>
 </body>
 </html>
