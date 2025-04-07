@@ -166,3 +166,20 @@ select#styleSelect option {
     background: #0ff;
     color: #000;
 }
+
+/* Blinking Yellow Effect */
+.blink-yellow {
+    animation: blink 1s infinite;
+}
+
+.yellow {
+    background-color: yellow;
+    color: black;
+}
+
+@keyframes blink {
+    50% {
+        background-color: transparent;
+        color: #0ff;
+    }
+}
