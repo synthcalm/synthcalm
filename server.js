@@ -5,10 +5,11 @@ const axios = require('axios');
 const app = express();
 const port = process.env.PORT || 3001;
 
+// Middleware
 app.use(cors());
 app.use(express.json());
 
-// Optional: clean mapped style extensions
+// Style descriptions mapped to readable phrases
 const styleMap = {
     "photo": "in a hyper-realistic photo style",
     "anime": "in Japanese anime style",
@@ -27,34 +28,39 @@ const styleMap = {
     "minimalism": "in minimalist style"
 };
 
+// Image generation endpoint
 app.post('/generate-image', async (req, res) => {
+    const { prompt, style } = req.body;
+    const apiKey = process.env.STABILITY_API_KEY;
+
+    // Validate prompt
+    if (!prompt || typeof prompt !== 'string' || prompt.trim() === '') {
+        return res.status(400).json({ error: 'Prompt is required and cannot be empty.' });
+    }
+
+    // Validate API key
+    if (!apiKey) {
+        return res.status(500).json({ error: 'Server error: Stability API key not configured.' });
+    }
+
+    // Prepare full prompt with selected style
+    const styleText = styleMap[style] || '';
+    const fullPrompt = `${prompt} ${styleText}`.trim();
+
+    console.log(`🧠 Sending prompt to Stability: "${fullPrompt}"`);
+
+    // Prepare Stability API request
+    const requestBody = {
+        text_prompts: [{ text: fullPrompt, weight: 1 }],
+        cfg_scale: 7,
+        clip_guidance_preset: 'FAST_BLUE',
+        height: 1024,
+        width: 1024,
+        samples: 1,
+        steps: 30
+    };
+
     try {
-        const { prompt, style } = req.body;
-        const apiKey = process.env.STABILITY_API_KEY;
-
-        if (!prompt || prompt.trim() === '') {
-            console.error('❌ Error: Prompt is empty or missing.');
-            return res.status(400).json({ error: 'Prompt is required and cannot be empty.' });
-        }
-
-        if (!apiKey) {
-            console.error('❌ Error: Stability API key not configured.');
-            return res.status(500).json({ error: 'Stability API key not configured. Please set the STABILITY_API_KEY environment variable.' });
-        }
-
-        const styleText = styleMap[style] || '';
-        const fullPrompt = `${prompt} ${styleText}`.trim();
-
-        const requestBody = {
-            text_prompts: [fullPrompt],  // ✅ CORRECT FORMAT
-            cfg_scale: 7,
-            clip_guidance_preset: 'FAST_BLUE',
-            height: 1024,
-            width: 1024,
-            samples: 1,
-            steps: 30
-        };
-
         const response = await axios.post(
             'https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image',
             requestBody,
@@ -67,29 +73,29 @@ app.post('/generate-image', async (req, res) => {
             }
         );
 
-        const image = Buffer.from(response.data, 'binary').toString('base64');
-        res.json({ image: `data:image/png;base64,${image}` });
+        const base64Image = Buffer.from(response.data, 'binary').toString('base64');
+        res.json({ image: `data:image/png;base64,${base64Image}` });
 
-        console.log('✅ Image generated for prompt:', fullPrompt);
-
+        console.log('✅ Image successfully generated.');
     } catch (error) {
-        console.error('❌ Error generating image:', error);
+        console.error('❌ Stability API error:', error?.response?.data || error.message);
 
         if (axios.isAxiosError(error)) {
             if (error.response) {
-                const errorMessage = error.response.data?.error || error.response.statusText;
-                return res.status(error.response.status).json({ error: `Image generation failed: ${errorMessage}` });
+                const message = error.response.data?.message || error.response.data?.error || 'Bad Request';
+                return res.status(error.response.status).json({ error: `Image generation failed: ${message}` });
             } else if (error.request) {
-                return res.status(500).json({ error: 'No response received from Stability API. Please try again.' });
+                return res.status(502).json({ error: 'No response from image service. Try again later.' });
             } else {
-                return res.status(500).json({ error: `Request setup error: ${error.message}` });
+                return res.status(500).json({ error: `Request error: ${error.message}` });
             }
-        } else {
-            return res.status(500).json({ error: 'Unexpected server error during image generation.' });
         }
+
+        res.status(500).json({ error: 'An unexpected server error occurred.' });
     }
 });
 
+// Start server
 app.listen(port, () => {
-    console.log(`✅ Server running on port ${port}`);
+    console.log(`✅ Server is running on port ${port}`);
 });
