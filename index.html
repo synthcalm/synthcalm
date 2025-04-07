@@ -215,3 +215,194 @@
   <div id="thinking">Generating...</div>
   <div id="moodHistory"></div>
 </div>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const canvas = document.getElementById("waveform");
+  const ctx = canvas.getContext("2d");
+  canvas.width = canvas.offsetWidth || 300;
+  canvas.height = 160;
+
+  const startBtn = document.getElementById("startVoice");
+  const styleSelect = document.getElementById("styleSelect");
+  const generateBtn = document.getElementById("generate");
+  const saveBtn = document.getElementById("saveMood");
+  const homeBtn = document.getElementById("synthCalmHome");
+  const countdownDisplay = document.getElementById("countdownDisplay");
+  const imageEl = document.getElementById("generatedImage");
+
+  let analyser, dataArray, audioCtx, source, micStream, recognition;
+  let isRecording = false;
+  let countdownInterval;
+
+  function updateDateTime() {
+    const now = new Date();
+    document.getElementById('dateTimeDisplay').textContent = now.toLocaleString();
+  }
+  setInterval(updateDateTime, 1000);
+  updateDateTime();
+
+  function drawWaveform() {
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = "#ffff00";
+    ctx.lineWidth = 0.5;
+    for (let i = canvas.width / 10; i < canvas.width; i += canvas.width / 10) {
+      ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
+    }
+    for (let i = canvas.height / 4; i < canvas.height; i += canvas.height / 4) {
+      ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); ctx.stroke();
+    }
+    if (analyser) {
+      requestAnimationFrame(drawWaveform);
+      analyser.getByteTimeDomainData(dataArray);
+      ctx.strokeStyle = "#ffff00";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      const sliceWidth = canvas.width / dataArray.length;
+      let x = 0;
+      for (let i = 0; i < dataArray.length; i++) {
+        const v = dataArray[i] / 128.0;
+        const y = (v * canvas.height) / 2;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        x += sliceWidth;
+      }
+      ctx.stroke();
+    }
+  }
+  drawWaveform();
+
+  async function startRecording() {
+    if (isRecording) return stopRecording();
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return alert("Use Chrome. Speech not supported.");
+
+    try {
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      source = audioCtx.createMediaStreamSource(micStream);
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 2048;
+      dataArray = new Uint8Array(analyser.fftSize);
+      source.connect(analyser);
+      drawWaveform();
+
+      recognition = new SR();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+      recognition.onresult = (e) => {
+        const text = Array.from(e.results).map(r => r[0].transcript).join('');
+        document.getElementById("activityInput").value = text;
+      };
+      recognition.onerror = (e) => alert("Speech error: " + e.error);
+      recognition.onend = () => { if (isRecording) recognition.start(); };
+
+      recognition.start();
+      isRecording = true;
+      startBtn.classList.add("recording");
+      startBtn.textContent = "Stop Voice";
+      startCountdown();
+    } catch (err) {
+      alert("Mic error: " + err.message);
+      stopRecording();
+    }
+  }
+
+  function stopRecording() {
+    if (recognition) recognition.stop();
+    if (micStream) micStream.getTracks().forEach(t => t.stop());
+    if (audioCtx) audioCtx.close();
+    analyser = null;
+    isRecording = false;
+    startBtn.classList.remove("recording");
+    startBtn.textContent = "Start Voice";
+    clearInterval(countdownInterval);
+    countdownDisplay.textContent = "00:60";
+    styleSelect.classList.add("blink-yellow");
+  }
+
+  function startCountdown() {
+    let seconds = 60;
+    countdownDisplay.textContent = `00:${seconds}`;
+    countdownInterval = setInterval(() => {
+      seconds--;
+      countdownDisplay.textContent = `00:${seconds < 10 ? "0" + seconds : seconds}`;
+      if (seconds <= 0) stopRecording();
+    }, 1000);
+  }
+
+  startBtn.addEventListener("click", startRecording);
+
+  styleSelect.addEventListener("change", () => {
+    styleSelect.classList.remove("blink-yellow");
+    styleSelect.classList.add("solid-yellow");
+    generateBtn.classList.add("blink-yellow");
+  });
+
+  generateBtn.addEventListener("click", async () => {
+    const prompt = document.getElementById("activityInput").value.trim();
+    const style = styleSelect.value;
+    if (!prompt) return alert("Enter a description.");
+    if (style === "none") return alert("Choose a style.");
+    generateBtn.disabled = true;
+    document.getElementById("thinking").style.display = "block";
+
+    try {
+      const res = await fetch('https://synthcalm-a2n7.onrender.com/generate-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, style })
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      const data = await res.json();
+      imageEl.src = data.image;
+      imageEl.style.display = "block";
+      generateBtn.classList.remove("blink-yellow");
+      generateBtn.classList.add("solid-yellow");
+    } catch (err) {
+      alert("Error generating image: " + err.message);
+    } finally {
+      generateBtn.disabled = false;
+      document.getElementById("thinking").style.display = "none";
+    }
+  });
+
+  saveBtn.addEventListener("click", () => {
+    const mood = document.getElementById("activityInput").value;
+    const img = imageEl.src;
+    const log = JSON.parse(localStorage.getItem('moodHistory') || '[]');
+    log.push({ mood, imageData: img, timestamp: new Date().toISOString() });
+    localStorage.setItem('moodHistory', JSON.stringify(log));
+    renderHistory();
+    saveBtn.classList.add("flash-magenta");
+    setTimeout(() => saveBtn.classList.remove("flash-magenta"), 500);
+  });
+
+  homeBtn.addEventListener("click", () => {
+    homeBtn.classList.add("flash-magenta");
+    setTimeout(() => homeBtn.classList.remove("flash-magenta"), 500);
+    window.location.href = "https://synthcalm.com";
+  });
+
+  document.getElementById("clear").addEventListener("click", () => {
+    document.getElementById("activityInput").value = "";
+    imageEl.style.display = "none";
+    styleSelect.classList.remove("solid-yellow", "blink-yellow");
+    generateBtn.classList.remove("solid-yellow", "blink-yellow");
+  });
+
+  function renderHistory() {
+    const log = JSON.parse(localStorage.getItem('moodHistory') || '[]');
+    const div = document.getElementById("moodHistory");
+    div.innerHTML = "";
+    log.forEach(entry => {
+      const el = document.createElement("div");
+      el.innerHTML = `<p>${entry.timestamp}: ${entry.mood}</p><img src="${entry.imageData}" style="max-width:100px;">`;
+      div.appendChild(el);
+    });
+  }
+  renderHistory();
+});
+</script>
+</body>
+</html>
