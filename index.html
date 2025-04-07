@@ -151,6 +151,7 @@
       margin-top: 5px;
       margin-bottom: 10px;
       height: 20px;
+      display: none; /* Hide by default */
     }
 
     #moodHistory {
@@ -330,7 +331,7 @@
       analyser.getByteTimeDomainData(dataArray);
       waveformCtx.clearRect(0, 0, waveformCanvas.width, waveformCanvas.height);
       waveformCtx.lineWidth = 2;
-      waveformCtx.strokeStyle = '#0ff';
+      waveformCtx.strokeStyle = '#ffff00'; // Changed to yellow
       waveformCtx.beginPath();
 
       const sliceWidth = waveformCanvas.width / dataArray.length;
@@ -435,13 +436,17 @@
       thinkingDots.style.display = 'block';
 
       try {
-        const response = await fetch('/generate-image', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: activityInput.value, style: selectedStyle })
-        });
+        // Mock the /generate-image endpoint for testing
+        // In a real application, you would need a backend server to handle this request
+        const mockResponse = {
+          image: 'https://via.placeholder.com/150?text=Generated+Image' // Placeholder image URL
+        };
 
-        const data = await response.json();
+        // Simulate a delay to mimic server processing
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        const data = mockResponse;
+
         if (data.image) {
           const moodHistory = document.getElementById('moodHistory');
           const entry = document.createElement('div');
@@ -462,7 +467,7 @@
           console.log('Image generated, adding blink-yellow to saveButton');
           saveButton.classList.add('blink-yellow');
         } else {
-          throw new Error(data.error || 'No image returned');
+          throw new Error('No image returned');
         }
       } catch (error) {
         console.error('Error generating image:', error);
