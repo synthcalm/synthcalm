@@ -57,11 +57,23 @@
 
   <script>
     function updateLocalDateTime() {
-      const now = new Date();
-      document.getElementById('dateTimeDisplay').textContent = now.toLocaleString();
-    }
-    setInterval(updateLocalDateTime, 1000);
-    updateLocalDateTime();
+  const now = new Date();
+  const options = {
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  };
+  const formatted = new Intl.DateTimeFormat('default', options).format(now);
+  document.getElementById('dateTimeDisplay').textContent = formatted;
+}
+setInterval(updateLocalDateTime, 1000);
+updateLocalDateTime();
+
 
     document.getElementById('saveMood').addEventListener('click', () => {
       const moodText = document.getElementById('activityInput').value;
