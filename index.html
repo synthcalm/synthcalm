@@ -71,19 +71,65 @@
     setInterval(updateDateTime, 1000);
     updateDateTime();
 
-    // Start Voice Recording
+    // === Audio Visualization ===
+    const canvas = document.getElementById("waveform");
+    const ctx = canvas.getContext("2d");
+    canvas.width = canvas.offsetWidth;
+    canvas.height = 160;
+
+    let analyser, dataArray, audioCtx, source, micStream;
+
+    function drawWaveform() {
+      if (!analyser) return;
+      requestAnimationFrame(drawWaveform);
+      analyser.getByteTimeDomainData(dataArray);
+      ctx.fillStyle = "black";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = "#ffff00";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      const sliceWidth = canvas.width / dataArray.length;
+      let x = 0;
+      for (let i = 0; i < dataArray.length; i++) {
+        const v = dataArray[i] / 128.0;
+        const y = v * canvas.height / 2;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+        x += sliceWidth;
+      }
+      ctx.lineTo(canvas.width, canvas.height / 2);
+      ctx.stroke();
+    }
+
+    // === Voice Recognition ===
     let recognition;
     const startBtn = document.getElementById("startVoice");
     let isRecording = false;
-    startBtn.addEventListener("click", () => {
+
+    startBtn.addEventListener("click", async () => {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) return alert("SpeechRecognition not supported");
 
       if (isRecording && recognition) {
         recognition.stop();
+        micStream.getTracks().forEach(track => track.stop());
         startBtn.textContent = "Start Voice";
         startBtn.classList.remove("recording");
         isRecording = false;
+        return;
+      }
+
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        source = audioCtx.createMediaStreamSource(micStream);
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 2048;
+        dataArray = new Uint8Array(analyser.fftSize);
+        source.connect(analyser);
+        drawWaveform();
+      } catch (err) {
+        console.error("Mic access denied", err);
         return;
       }
 
@@ -99,7 +145,6 @@
 
       recognition.onerror = (event) => console.error("Speech error", event);
       recognition.onend = () => {
-        console.log("Voice recognition ended");
         startBtn.classList.remove("recording");
         startBtn.textContent = "Start Voice";
         isRecording = false;
@@ -111,16 +156,10 @@
       isRecording = true;
     });
 
-    // Generate Image Sim
     document.getElementById("generate").addEventListener("click", () => {
       const mood = document.getElementById("activityInput").value;
       const style = document.getElementById("styleSelect").value;
-
-      if (!mood || style === "none") {
-        alert("Please enter your mood and select a style.");
-        return;
-      }
-
+      if (!mood || style === "none") return alert("Please enter your mood and select a style.");
       document.getElementById("thinking").style.display = "block";
       setTimeout(() => {
         document.getElementById("thinking").style.display = "none";
@@ -129,7 +168,6 @@
       }, 2000);
     });
 
-    // Save Mood Log
     document.getElementById("saveMood").addEventListener("click", () => {
       const moodText = document.getElementById("activityInput").value;
       const timestamp = new Date().toLocaleString();
@@ -146,7 +184,6 @@
       entry.style.display = "flex";
       entry.style.alignItems = "center";
       entry.style.marginBottom = "8px";
-
       document.getElementById("moodHistory").prepend(entry);
     });
 
