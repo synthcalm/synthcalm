@@ -7,7 +7,6 @@
   <link rel="stylesheet" href="/synthcalm/style.css"/>
 </head>
 <body>
-  <!-- force re-deploy -->
   <div class="container">
     <p>1. Press the "Start Voice" button and say what you feel. You have 60 Seconds. 2. Choose an art style. 3. Generate Image.</p>
 
@@ -42,6 +41,7 @@
         <option value="minimalism">Minimalism</option>
       </select>
       <button class="button" id="generate">Generate Image</button>
+      <button class="button" id="saveMood">Save</button>
       <button class="button" onclick="window.location.href='https://synthcalm.com'">Return to SynthCalm</button>
     </div>
 
@@ -57,7 +57,6 @@
   </div>
 
   <script>
-    // Update date/time to user's local time zone
     function updateLocalDateTime() {
       const now = new Date();
       document.getElementById('dateTimeDisplay').textContent = now.toLocaleString();
@@ -67,7 +66,7 @@
   </script>
 
   <script>
-    document.getElementById('generate').addEventListener('click', () => {
+    document.getElementById('saveMood').addEventListener('click', () => {
       const moodText = document.getElementById('activityInput').value;
       const timestamp = new Date().toLocaleString();
       const imgSrc = document.getElementById('generatedImage').src || 'https://via.placeholder.com/40x40/000000/0ff?text=🖼️';
