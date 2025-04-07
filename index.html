@@ -20,6 +20,12 @@
       text-align: center;
       margin: 20px 0;
     }
+    .error-message {
+      color: #ff3366;
+      text-align: center;
+      margin: 10px 0;
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -66,6 +72,7 @@
 
     <div class="image-frame">
       <img id="generatedImage" alt="Generated mood artwork" />
+      <div id="errorMessage" class="error-message"></div>
     </div>
 
     <div id="moodHistory" style="min-height: 100px;"></div>
@@ -73,9 +80,9 @@
   </div>
 
   <script>
-    // Replace with your Stability AI API key
-    const STABILITY_API_KEY = 'YOUR_STABILITY_AI_API_KEY_HERE';
-
+    // This will automatically use the environment variable in Render.com
+    // No need to manually set the API key here
+    
     function updateDateTime() {
       const now = new Date();
       const formatted = now.toLocaleString();
@@ -192,37 +199,48 @@
       drawGrid();
     }
 
+    // Function to show error messages
+    function showError(message) {
+      const errorElement = document.getElementById("errorMessage");
+      errorElement.textContent = message;
+      errorElement.style.display = "block";
+      setTimeout(() => {
+        errorElement.style.display = "none";
+      }, 5000); // Hide after 5 seconds
+    }
+
     async function generateImage(prompt, style) {
       try {
         // Show the thinking indicator
         document.getElementById("thinking").style.display = "block";
         
-        // Clear any previous image
+        // Clear any previous image and error messages
         const imgElement = document.getElementById("generatedImage");
         imgElement.style.display = "none";
+        document.getElementById("errorMessage").style.display = "none";
         
         // Create the full prompt with style
         const fullPrompt = `${prompt}, in ${style} style`;
         
         console.log("Generating image with prompt:", fullPrompt);
         
-        // Check if API key has been set
-        if (STABILITY_API_KEY === 'YOUR_STABILITY_AI_API_KEY_HERE') {
-          throw new Error('Please set your Stability AI API key in the code');
-        }
+        // Use the current URL's hostname to determine if we're on the Render deployment
+        const isOnRender = window.location.hostname.includes('render.com') || 
+                          window.location.hostname.includes('synthcalm-a2h7.onrender.com');
         
-        const response = await fetch('https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image', {
+        // If we're on Render, use a relative URL to access the same origin
+        // This will automatically use the environment variables set in Render
+        const apiUrl = isOnRender 
+          ? '/api/generate-image' 
+          : 'https://synthcalm-a2h7.onrender.com/api/generate-image';
+        
+        const response = await fetch(apiUrl, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${STABILITY_API_KEY}`,
-            'Accept': 'application/json'
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            text_prompts: [{
-              text: fullPrompt,
-              weight: 1.0
-            }],
+            prompt: fullPrompt,
             cfg_scale: 7.5,
             height: 1024,
             width: 1024,
@@ -232,20 +250,26 @@
         });
 
         if (!response.ok) {
-          const errorText = await response.text();
-          console.error('API Error Response:', errorText);
-          throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+          let errorText = '';
+          try {
+            const errorData = await response.json();
+            errorText = errorData.message || `Error: ${response.status}`;
+          } catch (e) {
+            errorText = `Error: ${response.status}`;
+          }
+          
+          console.error('API Error:', errorText);
+          throw new Error(errorText);
         }
 
         const data = await response.json();
-        console.log("API Response received:", data);
+        console.log("API Response received");
         
-        if (!data || !data.artifacts || !data.artifacts[0] || !data.artifacts[0].base64) {
+        if (!data || !data.image) {
           throw new Error('Invalid response format from API');
         }
         
-        const imageBase64 = data.artifacts[0].base64;
-        
+        // Set up image loading handlers
         imgElement.onload = function() {
           // Only show the image after it has loaded successfully
           imgElement.style.display = "block";
@@ -253,15 +277,15 @@
         
         imgElement.onerror = function() {
           console.error('Error loading the generated image');
-          alert('Failed to load the generated image. Please try again.');
+          showError('Failed to load the generated image. Please try again.');
         };
         
         // Set the image source
-        imgElement.src = `data:image/png;base64,${imageBase64}`;
+        imgElement.src = data.image;
         
       } catch (error) {
         console.error('Error generating image:', error);
-        alert('Failed to generate image: ' + error.message);
+        showError(error.message || 'Failed to generate image. Please try again.');
       } finally {
         document.getElementById("thinking").style.display = "none";
       }
@@ -274,12 +298,12 @@
       
       // Validate inputs
       if (!mood) {
-        alert("Please enter your mood description.");
+        showError("Please enter your mood description.");
         return;
       }
       
       if (style === "none" || styleSelect.selectedIndex === 0) {
-        alert("Please select an art style.");
+        showError("Please select an art style.");
         return;
       }
       
@@ -290,7 +314,7 @@
     document.getElementById("saveMood").addEventListener("click", () => {
       const moodText = document.getElementById("activityInput").value.trim();
       if (!moodText) {
-        alert("Please enter a mood description before saving.");
+        showError("Please enter a mood description before saving.");
         return;
       }
       
@@ -316,6 +340,7 @@
       const img = document.getElementById("generatedImage");
       img.style.display = "none";
       img.src = "";
+      document.getElementById("errorMessage").style.display = "none";
     });
   </script>
 </body>
