@@ -212,7 +212,8 @@
     <img id="generatedImage" alt="Generated Image"/>
   </div>
 
-  <div id="thinking">Generating...</div>
+  <div id="thinking" style="display: none;">Generating...</div>
+
   <div id="moodHistory"></div>
 </div>
 <script>
@@ -364,6 +365,11 @@ document.addEventListener("DOMContentLoaded", () => {
     } finally {
       generateBtn.disabled = false;
       document.getElementById("thinking").style.display = "none";
+
+      // Reset button glow styles after generation
+      styleSelect.classList.remove("solid-yellow", "blink-yellow");
+      generateBtn.classList.remove("solid-yellow", "blink-yellow");
+
     }
   });
 
