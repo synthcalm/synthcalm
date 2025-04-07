@@ -45,13 +45,8 @@
       });
 
       function toggleAuthButtons(session) {
-        if (session && session.user) {
-          loginButton.style.display = 'none';
-          logoutButton.style.display = 'inline-block';
-        } else {
-          loginButton.style.display = 'inline-block';
-          logoutButton.style.display = 'none';
-        }
+        document.getElementById('login').style.display = session ? 'none' : 'inline-block';
+        document.getElementById('logout').style.display = session ? 'inline-block' : 'none';
       }
     });
   </script>
