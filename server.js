@@ -46,9 +46,9 @@ app.post('/generate-image', async (req, res) => {
     const response = await axios.post(
       'https://api.stability.ai/v2beta/stable-image/generate/core',
       {
-        prompt,
+        prompt: prompt,
         style_preset: stylePreset,
-        output_format: "png"
+        output_format: 'png'
       },
       {
         headers: {
