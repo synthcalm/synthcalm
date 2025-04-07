@@ -63,6 +63,17 @@
   </div>
 
   <script>
+    function updateDateTime() {
+      const now = new Date();
+      const formatted = now.toLocaleString(undefined, {
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        hour12: false
+      });
+      document.getElementById('dateTimeDisplay').textContent = formatted;
+    }
+    setInterval(updateDateTime, 1000);
+    updateDateTime();
+
     document.getElementById("generate").addEventListener("click", async () => {
       const mood = document.getElementById("activityInput").value;
       const style = document.getElementById("styleSelect").value;
