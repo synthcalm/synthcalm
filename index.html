@@ -231,17 +231,70 @@
 
     // === Image Generation ===
     document.getElementById("generate").addEventListener("click", async () => {
-        // ... (Image generation code remains the same) ...
+        const prompt = document.getElementById("activityInput").value;
+        const style = document.getElementById("styleSelect").value;
+
+        document.getElementById("thinking").style.display = "block"; // Show "Generating..."
+
+        try {
+            const response = await fetch('/generate-image', { // Your server endpoint
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ prompt: prompt, style: style }),
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            const image = data.image; // Assuming your server returns { image: "base64..." }
+
+            document.getElementById("generatedImage").src = image;
+            document.getElementById("generatedImage").style.display = "block";
+        } catch (error) {
+            console.error("Image generation error:", error);
+            alert("Failed to generate image.");
+        }
+
+        document.getElementById("thinking").style.display = "none"; // Hide "Generating..."
     });
 
     // === Save Mood to History ===
     document.getElementById("saveMood").addEventListener("click", () => {
-        // ... (Save mood code remains the same) ...
+        const mood = document.getElementById("activityInput").value;
+        const imageData = document.getElementById("generatedImage").src;
+
+        // Store mood and image data (e.g., in local storage)
+        const moodHistory = JSON.parse(localStorage.getItem('moodHistory') || '[]');
+        moodHistory.push({ mood, imageData, timestamp: new Date().toISOString() });
+        localStorage.setItem('moodHistory', JSON.stringify(moodHistory));
+
+        // Display mood history (e.g., in the moodHistory div)
+        displayMoodHistory();
     });
+
+    function displayMoodHistory() {
+        const moodHistory = JSON.parse(localStorage.getItem('moodHistory') || '[]');
+        const moodHistoryDiv = document.getElementById('moodHistory');
+        moodHistoryDiv.innerHTML = ''; // Clear previous history
+
+        moodHistory.forEach(item => {
+            const moodEntry = document.createElement('div');
+            moodEntry.innerHTML = `<p>${item.timestamp}: ${item.mood}</p><img src="${item.imageData}" style="max-width: 100px;">`;
+            moodHistoryDiv.appendChild(moodEntry);
+        });
+    }
+
+    // Call displayMoodHistory on page load to show existing history
+    displayMoodHistory();
 
     // === Clear Input and Image ===
     document.getElementById("clear").addEventListener("click", () => {
-        // ... (Clear input code remains the same) ...
+        document.getElementById("activityInput").value = "";
+        document.getElementById("generatedImage").style.display = "none";
     });
 
     document.getElementById("styleSelect").addEventListener("click", () => {
