@@ -1,4 +1,4 @@
-// === Mood Into Art: Web Speech API + Backend + Auth Guard ===
+// === Mood Into Art: Web Speech API + Backend + Auth Guard + Supabase Save ===
 
 let isRecording = false;
 let countdown = 60;
@@ -17,17 +17,12 @@ let audioContext, analyser, dataArray, source;
   if (!user) {
     alert("Please log in to use this feature.");
     [
-      'startVoice',
-      'clear',
-      'generate',
-      'saveMood',
-      'activityInput',
-      'styleSelect'
+      'startVoice', 'clear', 'generate', 'saveMood',
+      'activityInput', 'styleSelect'
     ].forEach(id => document.getElementById(id).disabled = true);
   }
 })();
 
-// ⏱ Real-time Clock
 function updateDateTime() {
   const now = new Date();
   const dateTimeString = now.toISOString().slice(0, 19).replace("T", " ");
@@ -35,7 +30,6 @@ function updateDateTime() {
 }
 setInterval(updateDateTime, 1000);
 
-// 🎵 Setup waveform visualizer
 function setupWaveform() {
   audioContext = new (window.AudioContext || window.webkitAudioContext)();
   analyser = audioContext.createAnalyser();
@@ -63,7 +57,6 @@ function drawWaveform() {
 
   ctx.strokeStyle = 'rgba(255, 255, 0, 0.3)';
   ctx.lineWidth = 0.5;
-
   for (let x = 0; x <= canvas.width; x += 20) {
     ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
   }
@@ -74,7 +67,6 @@ function drawWaveform() {
   ctx.strokeStyle = '#ff0';
   ctx.lineWidth = 2;
   ctx.beginPath();
-
   const sliceWidth = canvas.width / dataArray.length;
   let x = 0;
   for (let i = 0; i < dataArray.length; i++) {
@@ -87,7 +79,6 @@ function drawWaveform() {
   ctx.stroke();
 }
 
-// 🧠 Thinking animation
 function startGeneratingDots() {
   const thinking = document.getElementById('thinking');
   if (!thinking) return;
@@ -105,14 +96,12 @@ function stopThinkingText() {
   thinking.style.display = 'none';
 }
 
-// 🎙️ Setup Web Speech API
 function setupWebSpeechAPI() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
     alert("Web Speech API not supported.");
     return stopRecording();
   }
-
   recognition = new SpeechRecognition();
   recognition.continuous = true;
   recognition.interimResults = true;
@@ -216,6 +205,31 @@ document.addEventListener('DOMContentLoaded', () => {
       alert("Error generating image. Please try again.");
     } finally {
       stopThinkingText();
+    }
+  });
+
+  // 💾 Save to Supabase
+  document.getElementById('saveMood').addEventListener('click', async () => {
+    const mood = document.getElementById('activityInput').value;
+    const imageSrc = document.getElementById('generatedImage').src;
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user || !mood || !imageSrc) {
+      alert("Make sure you're logged in, generated an image, and added a mood.");
+      return;
+    }
+
+    const { error } = await supabase.from('mia_logs').insert({
+      user_id: user.id,
+      mood_text: mood,
+      image_url: imageSrc,
+    });
+
+    if (error) {
+      console.error('Supabase save error:', error);
+      alert('Failed to save mood to Supabase.');
+    } else {
+      alert('Mood saved successfully!');
     }
   });
 });
