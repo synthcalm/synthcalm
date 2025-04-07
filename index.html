@@ -10,22 +10,6 @@
       border-color: magenta;
       color: magenta;
     }
-    #generatedImage {
-      max-width: 100%;
-      height: auto;
-      display: none;
-    }
-    .image-frame {
-      width: 100%;
-      text-align: center;
-      margin: 20px 0;
-    }
-    .error-message {
-      color: #ff3366;
-      text-align: center;
-      margin: 10px 0;
-      display: none;
-    }
   </style>
 </head>
 <body>
@@ -71,8 +55,7 @@
     <p style="color:#0ff;font-size:14px;text-align:center;">Mood History</p>
 
     <div class="image-frame">
-      <img id="generatedImage" alt="Generated mood artwork" />
-      <div id="errorMessage" class="error-message"></div>
+      <img id="generatedImage" style="display:none;" />
     </div>
 
     <div id="moodHistory" style="min-height: 100px;"></div>
@@ -80,268 +63,44 @@
   </div>
 
   <script>
-    // This will automatically use the environment variable in Render.com
-    // No need to manually set the API key here
-    
-    function updateDateTime() {
-      const now = new Date();
-      const formatted = now.toLocaleString();
-      document.getElementById('dateTimeDisplay').textContent = formatted;
-    }
-    setInterval(updateDateTime, 1000);
-    updateDateTime();
+    document.getElementById("generate").addEventListener("click", async () => {
+      const mood = document.getElementById("activityInput").value;
+      const style = document.getElementById("styleSelect").value;
+      const thinking = document.getElementById("thinking");
+      const imageEl = document.getElementById("generatedImage");
 
-    // Waveform
-    const canvas = document.getElementById("waveform");
-    const ctx = canvas.getContext("2d");
-    canvas.width = canvas.offsetWidth;
-    canvas.height = canvas.offsetHeight;
-    const gridSize = 20;
-    function drawGrid() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.strokeStyle = "rgba(255, 255, 0, 0.3)";
-      for (let x = 0; x < canvas.width; x += gridSize) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, canvas.height);
-        ctx.stroke();
-      }
-      for (let y = 0; y < canvas.height; y += gridSize) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(canvas.width, y);
-        ctx.stroke();
-      }
-    }
-    drawGrid();
-
-    let recognition;
-    const startBtn = document.getElementById("startVoice");
-    let isRecording = false;
-    let micStream, audioContext, analyser, dataArray, rafId;
-
-    startBtn.addEventListener("click", async () => {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRecognition) return alert("SpeechRecognition not supported");
-
-      if (isRecording && recognition) {
-        recognition.stop();
-        stopVisualizer();
-        startBtn.textContent = "Start Voice";
-        startBtn.classList.remove("recording");
-        isRecording = false;
+      if (!mood || style === "none") {
+        alert("Please enter your mood and select a style.");
         return;
       }
 
-      recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'en-US';
-      recognition.onresult = (event) => {
-        const transcript = Array.from(event.results).map(r => r[0].transcript).join('');
-        document.getElementById("activityInput").value = transcript;
-      };
-      recognition.onerror = (event) => console.error("Speech error", event);
-      recognition.onend = () => {
-        startBtn.classList.remove("recording");
-        startBtn.textContent = "Start Voice";
-        stopVisualizer();
-        isRecording = false;
-      };
-      recognition.start();
-
-      startBtn.classList.add("recording");
-      startBtn.textContent = "Stop Voice";
-      isRecording = true;
+      thinking.style.display = "block";
 
       try {
-        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        analyser = audioContext.createAnalyser();
-        const micSource = audioContext.createMediaStreamSource(micStream);
-        micSource.connect(analyser);
-        analyser.fftSize = 256;
-        const bufferLength = analyser.frequencyBinCount;
-        dataArray = new Uint8Array(bufferLength);
-
-        function animate() {
-          analyser.getByteTimeDomainData(dataArray);
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          drawGrid();
-          ctx.lineWidth = 2;
-          ctx.strokeStyle = "yellow";
-          ctx.beginPath();
-          const sliceWidth = canvas.width / bufferLength;
-          let x = 0;
-          for (let i = 0; i < bufferLength; i++) {
-            const v = dataArray[i] / 128.0;
-            const y = v * canvas.height / 2;
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-            x += sliceWidth;
-          }
-          ctx.lineTo(canvas.width, canvas.height / 2);
-          ctx.stroke();
-          rafId = requestAnimationFrame(animate);
-        }
-        animate();
-      } catch (err) {
-        console.error("Mic access failed:", err);
-      }
-    });
-
-    function stopVisualizer() {
-      if (rafId) cancelAnimationFrame(rafId);
-      if (audioContext) audioContext.close();
-      if (micStream) {
-        micStream.getTracks().forEach(track => track.stop());
-      }
-      drawGrid();
-    }
-
-    // Function to show error messages
-    function showError(message) {
-      const errorElement = document.getElementById("errorMessage");
-      errorElement.textContent = message;
-      errorElement.style.display = "block";
-      setTimeout(() => {
-        errorElement.style.display = "none";
-      }, 5000); // Hide after 5 seconds
-    }
-
-    async function generateImage(prompt, style) {
-      try {
-        // Show the thinking indicator
-        document.getElementById("thinking").style.display = "block";
-        
-        // Clear any previous image and error messages
-        const imgElement = document.getElementById("generatedImage");
-        imgElement.style.display = "none";
-        document.getElementById("errorMessage").style.display = "none";
-        
-        // Create the full prompt with style
-        const fullPrompt = `${prompt}, in ${style} style`;
-        
-        console.log("Generating image with prompt:", fullPrompt);
-        
-        // Use the current URL's hostname to determine if we're on the Render deployment
-        const isOnRender = window.location.hostname.includes('render.com') || 
-                          window.location.hostname.includes('synthcalm-a2h7.onrender.com');
-        
-        // If we're on Render, use a relative URL to access the same origin
-        // This will automatically use the environment variables set in Render
-        const apiUrl = isOnRender 
-          ? '/api/generate-image' 
-          : 'https://synthcalm-a2h7.onrender.com/api/generate-image';
-        
-        const response = await fetch(apiUrl, {
-          method: 'POST',
+        const response = await fetch("https://synthcalm.onrender.com/generate", {
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json'
+            "Content-Type": "application/json"
           },
-          body: JSON.stringify({
-            prompt: fullPrompt,
-            cfg_scale: 7.5,
-            height: 1024,
-            width: 1024,
-            steps: 50,
-            samples: 1
-          })
+          body: JSON.stringify({ prompt: `${mood}, ${style}` })
         });
 
-        if (!response.ok) {
-          let errorText = '';
-          try {
-            const errorData = await response.json();
-            errorText = errorData.message || `Error: ${response.status}`;
-          } catch (e) {
-            errorText = `Error: ${response.status}`;
-          }
-          
-          console.error('API Error:', errorText);
-          throw new Error(errorText);
-        }
-
         const data = await response.json();
-        console.log("API Response received");
-        
-        if (!data || !data.image) {
-          throw new Error('Invalid response format from API');
+
+        if (data.image) {
+          imageEl.src = `data:image/png;base64,${data.image}`;
+          imageEl.style.display = "block";
+        } else {
+          alert("No image returned.");
         }
-        
-        // Set up image loading handlers
-        imgElement.onload = function() {
-          // Only show the image after it has loaded successfully
-          imgElement.style.display = "block";
-        };
-        
-        imgElement.onerror = function() {
-          console.error('Error loading the generated image');
-          showError('Failed to load the generated image. Please try again.');
-        };
-        
-        // Set the image source
-        imgElement.src = data.image;
-        
-      } catch (error) {
-        console.error('Error generating image:', error);
-        showError(error.message || 'Failed to generate image. Please try again.');
+      } catch (err) {
+        console.error("Image generation error:", err);
+        alert("Failed to generate image.");
       } finally {
-        document.getElementById("thinking").style.display = "none";
+        thinking.style.display = "none";
       }
-    }
-
-    document.getElementById("generate").addEventListener("click", async () => {
-      const mood = document.getElementById("activityInput").value.trim();
-      const styleSelect = document.getElementById("styleSelect");
-      const style = styleSelect.value;
-      
-      // Validate inputs
-      if (!mood) {
-        showError("Please enter your mood description.");
-        return;
-      }
-      
-      if (style === "none" || styleSelect.selectedIndex === 0) {
-        showError("Please select an art style.");
-        return;
-      }
-      
-      console.log("Generate button clicked. Mood:", mood, "Style:", style);
-      await generateImage(mood, style);
-    });
-
-    document.getElementById("saveMood").addEventListener("click", () => {
-      const moodText = document.getElementById("activityInput").value.trim();
-      if (!moodText) {
-        showError("Please enter a mood description before saving.");
-        return;
-      }
-      
-      const timestamp = new Date().toLocaleString();
-      const img = document.getElementById("generatedImage");
-      const imgSrc = img && img.src && img.style.display !== 'none' ? 
-        img.src : 'https://via.placeholder.com/40x40/000000/0ff?text=🖼️';
-      const entry = document.createElement("div");
-      entry.className = "history-entry";
-      entry.innerHTML = `
-        <img src="${imgSrc}" style="width:40px;height:40px;object-fit:cover;border:1px solid #0ff;margin-right:8px;" />
-        <span style="color:#0ff;flex-grow:1;">${timestamp}: ${moodText}</span>
-        <button onclick="this.parentElement.remove()" style="margin-left:8px;">Delete</button>
-      `;
-      entry.style.display = "flex";
-      entry.style.alignItems = "center";
-      entry.style.marginBottom = "8px";
-      document.getElementById("moodHistory").prepend(entry);
-    });
-
-    document.getElementById("clear").addEventListener("click", () => {
-      document.getElementById("activityInput").value = "";
-      const img = document.getElementById("generatedImage");
-      img.style.display = "none";
-      img.src = "";
-      document.getElementById("errorMessage").style.display = "none";
     });
   </script>
+  <script src="/synthcalm/script.js"></script>
 </body>
 </html>
