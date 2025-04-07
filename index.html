@@ -62,9 +62,7 @@
     }
     setInterval(updateLocalDateTime, 1000);
     updateLocalDateTime();
-  </script>
 
-  <script>
     document.getElementById('saveMood').addEventListener('click', () => {
       const moodText = document.getElementById('activityInput').value;
       const timestamp = new Date().toLocaleString();
@@ -74,12 +72,34 @@
       const entry = document.createElement('div');
       entry.className = 'history-entry';
       entry.innerHTML = `
-        <img src="${imgSrc}" style="width:40px;height:40px;object-fit:cover;border:1px solid #0ff;" />
-        <span style="color:#0ff;">${timestamp}: ${moodText}</span>
-        <button onclick="this.parentElement.remove()">Delete</button>
+        <img src="${imgSrc}" style="width:40px;height:40px;object-fit:cover;border:1px solid #0ff;margin-right:8px;" />
+        <span style="color:#0ff;flex-grow:1;">${timestamp}: ${moodText}</span>
+        <button onclick="this.parentElement.remove()" style="margin-left:8px;">Delete</button>
       `;
+      entry.style.display = 'flex';
+      entry.style.alignItems = 'center';
+      entry.style.marginBottom = '8px';
 
       document.getElementById('moodHistory').prepend(entry);
+    });
+
+    document.getElementById('generate').addEventListener('click', () => {
+      const mood = document.getElementById('activityInput').value;
+      const style = document.getElementById('styleSelect').value;
+
+      if (!mood || style === 'none') {
+        alert('Please enter your mood and select a style.');
+        return;
+      }
+
+      document.getElementById('thinking').style.display = 'block';
+
+      // Simulate image generation delay
+      setTimeout(() => {
+        document.getElementById('thinking').style.display = 'none';
+        document.getElementById('generatedImage').src = `https://via.placeholder.com/400x300/000000/0ff?text=${encodeURIComponent(style)}`;
+        document.getElementById('generatedImage').style.display = 'block';
+      }, 2000);
     });
   </script>
 
