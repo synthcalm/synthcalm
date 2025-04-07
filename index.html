@@ -314,7 +314,7 @@
     </div>
   </div>
   <script>
-    document.getElementById('saveMood').addEventListener('click', async () => {
+    document.getElementById('save').addEventListener('click', async () => {
       const mood = document.getElementById('activityInput').value;
       const imageUrl = document.getElementById('generatedImage')?.src || null;
       const user = await supabase.auth.getUser();
