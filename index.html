@@ -152,4 +152,215 @@
             const y = (v * canvas.height) / 2;
             if (i === 0) ctx.moveTo(x, y);
             else ctx.lineTo(x, y);
-           
+            x += sliceWidth;
+        }
+        ctx.lineTo(canvas.width, canvas.height / 2);
+        ctx.stroke();
+    }
+    drawWaveform();
+
+    async function startRecording() {
+        if (isRecording) {
+            stopRecording();
+            return;
+        }
+
+        // Check if SpeechRecognition is supported
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            alert("Speech recognition is not supported in this browser. Please use Google Chrome.");
+            return;
+        }
+
+        try {
+            console.log("Requesting microphone access...");
+            micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            console.log("Microphone access granted.");
+
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            source = audioCtx.createMediaStreamSource(micStream);
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 2048;
+            dataArray = new Uint8Array(analyser.fftSize);
+            source.connect(analyser);
+            drawWaveform();
+
+            console.log("Setting up speech recognition...");
+            recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = 'en-US';
+
+            recognition.onresult = (event) => {
+                const transcript = Array.from(event.results).map(r => r[0].transcript).join('');
+                document.getElementById("activityInput").value = transcript;
+                console.log("Speech recognized:", transcript);
+            };
+
+            recognition.onerror = (event) => {
+                console.error("Speech recognition error:", event.error);
+                if (event.error === "not-allowed") {
+                    alert("Microphone access for speech recognition denied. Please allow microphone access in your browser settings.");
+                } else if (event.error === "no-speech") {
+                    alert("No speech detected. Please speak clearly into the microphone.");
+                } else {
+                    alert("Speech recognition error: " + event.error);
+                }
+            };
+
+            recognition.onend = () => {
+                if (isRecording) {
+                    console.log("Restarting speech recognition...");
+                    recognition.start();
+                }
+            };
+
+            console.log("Starting speech recognition...");
+            recognition.start();
+
+            isRecording = true;
+            startBtn.classList.add("recording");
+            startBtn.textContent = "Stop Voice";
+            startCountdown();
+
+        } catch (err) {
+            console.error("Recording failed:", err);
+            if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+                alert("Microphone access denied. Please allow microphone access in your browser settings and try again.");
+            } else if (err.name === "NotFoundError") {
+                alert("No microphone found. Please ensure a microphone is connected to your device.");
+            } else {
+                alert("Failed to start recording: " + err.message);
+            }
+            stopRecording();
+        }
+    }
+
+    function stopRecording() {
+        if (recognition) recognition.stop();
+        if (micStream) micStream.getTracks().forEach(track => track.stop());
+        if (audioCtx) audioCtx.close();
+        analyser = null;
+        isRecording = false;
+        startBtn.classList.remove("recording");
+        startBtn.textContent = "Start Voice";
+        clearInterval(countdownInterval);
+        countdownDisplay.textContent = "00:60";
+    }
+
+    function startCountdown() {
+        let seconds = 60;
+        countdownDisplay.textContent = `00:${seconds}`;
+        countdownInterval = setInterval(() => {
+            seconds--;
+            countdownDisplay.textContent = `00:${seconds < 10 ? "0" + seconds : seconds}`;
+            if (seconds <= 0) stopRecording();
+        }, 1000);
+    }
+
+    startBtn.addEventListener("click", startRecording);
+
+    // === Image Generation ===
+    document.getElementById("generate").addEventListener("click", async () => {
+        const prompt = document.getElementById("activityInput").value.trim();
+        const style = document.getElementById("styleSelect").value;
+        const generateBtn = document.getElementById("generate");
+
+        // Validate inputs
+        if (!prompt) {
+            alert("Please enter a description of your mood.");
+            return;
+        }
+        if (style === "none") {
+            alert("Please choose an art style.");
+            return;
+        }
+
+        generateBtn.disabled = true; // Disable button during request
+        document.getElementById("thinking").style.display = "block"; // Show "Generating..."
+
+        try {
+            console.log("Sending request to generate image with prompt:", prompt, "and style:", style);
+            const response = await fetch('https://your-backend-server.com/generate-image', { // Replace with your deployed server URL
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ prompt: prompt, style: style }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log("Image generated successfully:", data.image);
+            const image = data.image;
+
+            document.getElementById("generatedImage").src = image;
+            document.getElementById("generatedImage").style.display = "block";
+        } catch (error) {
+            console.error("Image generation error:", error);
+            alert("Failed to generate image: " + error.message);
+        } finally {
+            generateBtn.disabled = false; // Re-enable button
+            document.getElementById("thinking").style.display = "none"; // Hide "Generating..."
+        }
+    });
+
+    // === Save Mood to History ===
+    document.getElementById("saveMood").addEventListener("click", () => {
+        const mood = document.getElementById("activityInput").value;
+        const imageData = document.getElementById("generatedImage").src;
+
+        // Store mood and image data (e.g., in local storage)
+        const moodHistory = JSON.parse(localStorage.getItem('moodHistory') || '[]');
+        moodHistory.push({ mood, imageData, timestamp: new Date().toISOString() });
+        localStorage.setItem('moodHistory', JSON.stringify(moodHistory));
+
+        // Display mood history (e.g., in the moodHistory div)
+        displayMoodHistory();
+    });
+
+    function displayMoodHistory() {
+        const moodHistory = JSON.parse(localStorage.getItem('moodHistory') || '[]');
+        const moodHistoryDiv = document.getElementById('moodHistory');
+        moodHistoryDiv.innerHTML = ''; // Clear previous history
+
+        moodHistory.forEach(item => {
+            const moodEntry = document.createElement('div');
+            moodEntry.innerHTML = `<p>${item.timestamp}: ${item.mood}</p><img src="${item.imageData}" style="max-width: 100px;">`;
+            moodHistoryDiv.appendChild(moodEntry);
+        });
+    }
+
+    // Call displayMoodHistory on page load to show existing history
+    displayMoodHistory();
+
+    // === Clear Input and Image ===
+    document.getElementById("clear").addEventListener("click", () => {
+        document.getElementById("activityInput").value = "";
+        document.getElementById("generatedImage").style.display = "none";
+    });
+
+    document.getElementById("styleSelect").addEventListener("click", () => {
+        document.getElementById("styleSelect").classList.add("active");
+    });
+    document.getElementById("styleSelect").addEventListener("change", () => {
+        document.getElementById("styleSelect").classList.remove("active");
+    });
+
+    function addButtonActiveFeedback(elementId) {
+        const element = document.getElementById(elementId);
+        element.classList.add("active");
+        setTimeout(() => element.classList.remove("active"), 500);
+    }
+
+    document.getElementById("saveMood").addEventListener("click", () => addButtonActiveFeedback("saveMood"));
+    document.getElementById("synthCalmHome").addEventListener("click", () => addButtonActiveFeedback("synthCalmHome"));
+    document.getElementById("generate").addEventListener("click", () => addButtonActiveFeedback("generate"));
+
+</script>
+</body>
+</html>
