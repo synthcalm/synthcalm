@@ -52,7 +52,7 @@
       <img id="generatedImage" />
     </div>
 
-    <div id="moodHistory"></div>
+    <div id="moodHistory" style="min-height: 100px;"></div>
   </div>
 
   <script>
@@ -75,7 +75,7 @@
       entry.className = 'history-entry';
       entry.innerHTML = `
         <img src="${imgSrc}" style="width:40px;height:40px;object-fit:cover;border:1px solid #0ff;" />
-        <span>${timestamp}: ${moodText}</span>
+        <span style="color:#0ff;">${timestamp}: ${moodText}</span>
         <button onclick="this.parentElement.remove()">Delete</button>
       `;
 
