@@ -1,57 +1,289 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Mood Into Art</title>
-  <link rel="stylesheet" href="style.css"/>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Mood Into Art</title>
+    <link rel="stylesheet" href="/synthcalm/style.css"/>
+    <style>
+        #startVoice.recording {
+            border-color: magenta;
+            color: magenta;
+        }
+    </style>
 </head>
 <body>
-  <div class="container">
+<div class="container">
     <p>1. Press the "Start Voice" button and say what you feel. You have 60 Seconds. 2. Choose an art style. 3. Generate Image.</p>
 
     <canvas id="waveform"></canvas>
 
     <div class="footer-bar">
-      <div id="dateTimeDisplay" class="seven-segment"></div>
-      <div id="countdownDisplay" class="seven-segment">00:60</div>
+        <div id="dateTimeDisplay" class="seven-segment"></div>
+        <div id="countdownDisplay" class="seven-segment">00:60</div>
     </div>
 
     <textarea id="activityInput" rows="4" placeholder="Describe your mood... (editable after recording)"></textarea>
+    <input type="file" id="imageInput" accept="image/*">
 
     <div class="button-group">
-      <button class="button" id="startVoice">Start Voice</button>
-      <button class="button" id="clear">Clear</button>
-      <select id="styleSelect">
-        <option value="none" selected disabled>Choose Style</option>
-        <option value="photo">Hyper-realistic Photo</option>
-        <option value="anime">Japanese Anime Style</option>
-        <option value="abstract">Abstract</option>
-        <option value="surrealism">Surrealism</option>
-        <option value="post-modern">Post-modern</option>
-        <option value="cyberpunk">Cyberpunk</option>
-        <option value="arabic-calligraphy">Arabic Calligraphy</option>
-        <option value="chinese-calligraphy">Chinese Calligraphy</option>
-        <option value="japanese-calligraphy">Japanese Calligraphy</option>
-        <option value="marvel">Marvel Comic</option>
-        <option value="art-deco">Art Deco</option>
-        <option value="impressionist">Impressionist</option>
-        <option value="pop-art">Pop Art</option>
-        <option value="digital-painting">Digital Painting</option>
-        <option value="minimalism">Minimalism</option>
-      </select>
-      <button class="button" id="generate">Generate Image</button>
-      <button class="button" onclick="window.location.href='https://synthcalm.com'">Return to SynthCalm</button>
+        <button class="button" id="startVoice">Start Voice</button>
+        <button class="button" id="clear">Clear</button>
+        <select id="styleSelect">
+            <option value="none" selected disabled>Choose Style</option>
+            <option value="photo">Hyper-realistic Photo</option>
+            <option value="anime">Japanese Anime Style</option>
+            <option value="abstract">Abstract</option>
+            <option value="surrealism">Surrealism</option>
+            <option value="post-modern">Post-modern</option>
+            <option value="cyberpunk">Cyberpunk</option>
+            <option value="arabic-calligraphy">Arabic Calligraphy</option>
+            <option value="chinese-calligraphy">Chinese Calligraphy</option>
+            <option value="japanese-calligraphy">Japanese Calligraphy</option>
+            <option value="marvel">Marvel Comic</option>
+            <option value="art-deco">Art Deco</option>
+            <option value="impressionist">Impressionist</option>
+            <option value="pop-art">Pop Art</option>
+            <option value="digital-painting">Digital Painting</option>
+            <option value="minimalism">Minimalism</option>
+        </select>
+        <button class="button" id="generate">Generate Image</button>
+        <button class="button" id="saveMood">Save</button>
+        <button class="button" onclick="window.location.href='https://synthcalm.com'">Return to SynthCalm</button>
     </div>
 
-    <div id="thinking" style="display: none;">Generating ⠄</div>
+    <hr style="border: none; border-top: 1px solid #0ff; margin: 20px 0;" />
+    <p style="color:#0ff;font-size:14px;text-align:center;">Mood History</p>
 
     <div class="image-frame">
-      <img id="generatedImage" />
+        <img id="generatedImage" style="display:none; max-width:100%;" />
     </div>
 
-    <div id="moodHistory"></div>
-  </div>
-  <script src="script.js"></script>
+    <div id="moodHistory" style="min-height: 100px;"></div>
+    <div id="thinking" style="display:none;text-align:center;color:#ff0;font-family:'Courier New', monospace;">Generating...</div>
+</div>
+
+<script>
+    // === Clock Display ===
+    function updateDateTime() {
+        const now = new Date();
+        const formatted = now.toLocaleString(undefined, {
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            hour12: false
+        });
+        document.getElementById('dateTimeDisplay').textContent = formatted;
+    }
+    setInterval(updateDateTime, 1000);
+    updateDateTime();
+
+    // === Waveform Visualization and Voice Recording ===
+    const canvas = document.getElementById("waveform");
+    const ctx = canvas.getContext("2d");
+    canvas.width = canvas.offsetWidth;
+    canvas.height = 160;
+
+    let analyser, dataArray, audioCtx, source, micStream;
+    let recognition;
+    const startBtn = document.getElementById("startVoice");
+    const countdownDisplay = document.getElementById("countdownDisplay");
+    let isRecording = false;
+    let countdownInterval;
+
+    function drawWaveform() {
+        if (!analyser) {
+            ctx.fillStyle = "black";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            return;
+        }
+        requestAnimationFrame(drawWaveform);
+        analyser.getByteTimeDomainData(dataArray);
+        ctx.fillStyle = "black";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = "#ffff00";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        const sliceWidth = canvas.width / dataArray.length;
+        let x = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+            const v = dataArray[i] / 128.0;
+            const y = (v * canvas.height) / 2;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+            x += sliceWidth;
+        }
+        ctx.lineTo(canvas.width, canvas.height / 2);
+        ctx.stroke();
+    }
+    drawWaveform();
+
+    startBtn.addEventListener("click", async () => {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            alert("SpeechRecognition not supported in this browser. Please use Chrome or Edge.");
+            return;
+        }
+
+        if (isRecording) {
+            stopRecording();
+            return;
+        }
+
+        try {
+            micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            source = audioCtx.createMediaStreamSource(micStream);
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 2048;
+            dataArray = new Uint8Array(analyser.fftSize);
+            source.connect(analyser);
+            drawWaveform();
+        } catch (err) {
+            console.error("Microphone access denied:", err);
+            alert("Failed to access microphone: " + err.message);
+            return;
+        }
+
+        try {
+            recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = 'en-US';
+
+            recognition.onresult = (event) => {
+                const transcript = Array.from(event.results).map(r => r[0].transcript).join('');
+                document.getElementById("activityInput").value = transcript;
+                console.log("Speech recognition result:", transcript);
+            };
+
+            recognition.onerror = (event) => {
+                console.error("Speech recognition error:", event.error);
+                if (event.error === "not-allowed") {
+                    alert("Microphone access for speech recognition denied.");
+                }
+            };
+
+            recognition.onend = () => {
+                console.log("Speech recognition ended");
+                if (isRecording) recognition.start();
+            };
+
+            recognition.start();
+            isRecording = true;
+            startBtn.classList.add("recording");
+            startBtn.textContent = "Stop Voice";
+            startCountdown();
+        } catch (err) {
+            console.error("Speech recognition failed to start:", err);
+            alert("Failed to start speech recognition: " + err.message);
+            stopRecording();
+        }
+    });
+
+    function stopRecording() {
+        if (recognition) recognition.stop();
+        if (micStream) micStream.getTracks().forEach(track => track.stop());
+        if (audioCtx) audioCtx.close();
+        analyser = null;
+        isRecording = false;
+        startBtn.classList.remove("recording");
+        startBtn.textContent = "Start Voice";
+        clearInterval(countdownInterval);
+        countdownDisplay.textContent = "00:60";
+    }
+
+    function startCountdown() {
+        let seconds = 60;
+        countdownDisplay.textContent = `00:${seconds}`;
+        countdownInterval = setInterval(() => {
+            seconds--;
+            countdownDisplay.textContent = `00:${seconds < 10 ? "0" + seconds : seconds}`;
+            if (seconds <= 0) stopRecording();
+        }, 1000);
+    }
+
+    // === Image Generation ===
+    document.getElementById("generate").addEventListener("click", async () => {
+        const mood = document.getElementById("activityInput").value;
+        const style = document.getElementById("styleSelect").value;
+        const thinking = document.getElementById("thinking");
+        const imageEl = document.getElementById("generatedImage");
+        const imageInput = document.getElementById('imageInput');
+
+        if (!mood || style === "none") {
+            alert("Please enter your mood and select a style.");
+            return;
+        }
+
+        if(!imageInput.files[0]){
+            alert("Please select an image to use.");
+            return;
+        }
+
+        const imageFile = imageInput.files[0];
+
+        thinking.style.display = "block";
+
+        try {
+
+          const formData = new FormData();
+          formData.append('image', imageFile);
+          formData.append('prompt', `${mood}, ${style}`);
+
+          const response = await fetch("http://your-server-address:3001/generate-image", { //replace with server address
+            method: "POST",
+            body: formData,
+          });
+
+            const data = await response.json();
+
+            if (data.image) {
+                imageEl.src = `data:image/png;base64,${data.image}`;
+                imageEl.style.display = "block";
+            } else {
+                alert("No image returned.");
+            }
+        } catch (err) {
+            console.error("Image generation error:", err);
+            alert("Failed to generate image.");
+        } finally {
+            thinking.style.display = "none";
+        }
+    });
+
+    // === Save Mood to History ===
+    document.getElementById("saveMood").addEventListener("click", () => {
+        const moodText = document.getElementById("activityInput").value.trim();
+        if (!moodText) {
+            alert("Please enter a mood to save.");
+            return;
+        }
+
+        const timestamp = new Date().toLocaleString();
+        const img = document.getElementById("generatedImage");
+        const imgSrc = img && img.src && img.style.display !== "none"
+            ? img.src
+            : 'https://placehold.co/40x40/000000/0ff?text=🖼️';
+
+        const entry = document.createElement("div");
+        entry.className = "history-entry";
+        entry.innerHTML = `
+            <img src="${imgSrc}" style="width:40px;height:40px;object-fit:cover;border:1px solid #0ff;margin-right:8px;" />
+            <span style="color:#0ff;flex-grow:1;">${timestamp}: ${moodText}</span>
+            <button onclick="this.parentElement.remove()" style="margin-left:8px;">Delete</button>
+        `;
+        entry.style.display = "flex";
+        entry.style.alignItems = "center";
+        entry.style.marginBottom = "8px";
+        document.getElementById("moodHistory").prepend(entry);
+    });
+
+    // === Clear Input and Image ===
+    document.getElementById("clear").addEventListener("click", () => {
+        document.getElementById("activityInput").value = "";
+        const img = document.getElementById("generatedImage");
+        img.src = "";
+        img.style.display = "none";
+    });
+</script>
 </body>
 </html>
