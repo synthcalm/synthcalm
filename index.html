@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Mood Into Art</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SynthCalm</title>
   <style>
     body {
       font-family: 'Courier New', monospace;
@@ -42,7 +42,9 @@
       margin: 10px 0;
     }
 
-    textarea, .button, select#styleSelect {
+    textarea,
+    .button,
+    select#styleSelect {
       width: 100%;
       background: #000;
       border: 2px solid #0ff;
@@ -55,24 +57,35 @@
       font-size: 14px;
     }
 
+    /* Specific styles for textarea */
     textarea#activityInput {
       max-width: 100%;
       min-height: 60px;
       resize: none;
       overflow-wrap: break-word;
+      font-size: 14px;
     }
 
+    /* Styled dropdown to look like buttons */
     select#styleSelect {
       text-align: center;
       text-align-last: center;
+      -webkit-text-align-last: center; /* Safari (iOS/iPad) */
+      -moz-text-align-last: center;
+      -webkit-appearance: none;
+      -moz-appearance: none;
       appearance: none;
       background-position: right 10px center;
       background-repeat: no-repeat;
       padding-right: 30px;
       padding-left: 10px;
+      line-height: normal;
+      display: block;
+      box-sizing: border-box;
       cursor: pointer;
     }
 
+    /* Dropdown options style */
     select#styleSelect option {
       text-align: center;
       font-family: 'Courier New', monospace;
@@ -133,6 +146,7 @@
       margin-top: 5px;
       margin-bottom: 10px;
       height: 20px;
+      display: none;
     }
 
     #moodHistory {
@@ -141,274 +155,251 @@
       color: #0ff;
     }
 
+    .history-entry {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      gap: 8px;
+    }
+
+    .history-entry img {
+      max-width: 100px;
+      max-height: 100px;
+      object-fit: contain;
+    }
+
+    .history-entry button {
+      background: transparent;
+      border: 1px solid #0ff;
+      color: #0ff;
+      padding: 2px 8px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .history-entry button:hover {
+      background: #0ff;
+      color: #000;
+    }
+
+    /* Soft Blinking Yellow Border Effect */
+    @keyframes soft-blink {
+      0% { border-color: #0ff; } /* Default cyan border */
+      50% { border-color: #ffff00; } /* Yellow */
+      100% { border-color: #0ff; } /* Back to cyan */
+    }
+
     .blink-yellow {
-      animation: blink-yellow 1.4s infinite;
-      border-color: yellow !important;
+      animation: soft-blink 1.5s infinite ease-in-out;
     }
 
-    .solid-yellow {
-      border-color: yellow !important;
+    /* Solid Yellow Highlight (for Generate Image button and Generating dots) */
+    .highlight-yellow {
+      border-color: #ffff00 !important; /* Solid yellow border */
+      color: #0ff; /* Keep text color cyan for buttons */
     }
 
-    .flash-magenta {
-      animation: flash-magenta 0.5s steps(1) 2;
-      border-color: magenta !important;
-    }
-
-    @keyframes blink-yellow {
-      0%, 100% { border-color: transparent; }
-      50% { border-color: yellow; }
-    }
-
-    @keyframes flash-magenta {
-      0%, 100% { border-color: #0ff; }
-      50% { border-color: magenta; }
+    /* Apply yellow color to the Generating dots when highlighted */
+    #thinking.highlight-yellow {
+      color: #ffff00 !important; /* Yellow text for the dots */
     }
   </style>
 </head>
 <body>
-<div class="container">
-  <p>1. Press "Start Voice" and say what you feel. 2. Choose an art style. 3. Generate Image.</p>
-
-  <canvas id="waveform"></canvas>
-
-  <div class="footer-bar">
-    <div id="dateTimeDisplay" class="seven-segment"></div>
-    <div id="countdownDisplay" class="seven-segment">00:60</div>
+  <div class="container">
+    <canvas id="waveform"></canvas>
+    <div class="footer-bar">
+      <span class="seven-segment" id="currentTime"></span>
+      <span class="seven-segment">00:60</span>
+    </div>
+    <textarea id="activityInput" readonly></textarea>
+    <div class="button-group">
+      <button id="startVoice" class="button">Start Voice</button>
+      <button id="clear" class="button">Clear</button>
+    </div>
+    <div class="button-group">
+      <select id="styleSelect">
+        <option value="">Choose Style</option>
+        <option value="photo">Photo</option>
+        <option value="anime">Anime</option>
+        <option value="abstract">Abstract</option>
+        <option value="surrealism">Surrealism</option>
+        <option value="post-modern">Post-Modern</option>
+        <option value="cyberpunk">Cyberpunk</option>
+        <option value="arabic-calligraphy">Arabic Calligraphy</option>
+        <option value="chinese-calligraphy">Chinese Calligraphy</option>
+        <option value="japanese-calligraphy">Japanese Calligraphy</option>
+        <option value="marvel">Marvel</option>
+        <option value="art-deco">Art Deco</option>
+        <option value="impressionist">Impressionist</option>
+        <option value="pop-art">Pop Art</option>
+        <option value="digital-painting">Digital Painting</option>
+        <option value="minimalism">Minimalism</option>
+      </select>
+      <button id="generateImage" class="button">Generate Image</button>
+    </div>
+    <div class="button-group">
+      <button id="save" class="button">Save</button>
+      <button id="synthcalmHome" class="button">SynthCalm Home</button>
+    </div>
+    <div id="thinking">GENERATING...</div>
+    <div id="moodHistory">
+      <h3>MOOD HISTORY</h3>
+    </div>
   </div>
 
-  <textarea id="activityInput" rows="4" placeholder="Describe your mood..."></textarea>
+  <script>
+    // Select DOM elements
+    const startVoiceButton = document.getElementById('startVoice');
+    const styleSelect = document.getElementById('styleSelect');
+    const generateImageButton = document.getElementById('generateImage');
+    const saveButton = document.getElementById('save');
+    const clearButton = document.getElementById('clear');
+    const synthcalmHomeButton = document.getElementById('synthcalmHome');
+    const thinkingDots = document.getElementById('thinking');
+    const activityInput = document.getElementById('activityInput');
+    const currentTime = document.getElementById('currentTime');
 
-  <div class="button-group">
-    <button class="button" id="startVoice">Start Voice</button>
-    <button class="button" id="clear">Clear</button>
-    <select id="styleSelect">
-      <option value="none" selected disabled>Choose Style</option>
-      <option value="photo">Hyper-realistic Photo</option>
-      <option value="anime">Japanese Anime Style</option>
-      <option value="abstract">Abstract</option>
-      <option value="surrealism">Surrealism</option>
-      <option value="post-modern">Post-modern</option>
-      <option value="cyberpunk">Cyberpunk</option>
-      <option value="arabic-calligraphy">Arabic Calligraphy</option>
-      <option value="chinese-calligraphy">Chinese Calligraphy</option>
-      <option value="japanese-calligraphy">Japanese Calligraphy</option>
-      <option value="marvel">Marvel Comic</option>
-      <option value="art-deco">Art Deco</option>
-      <option value="impressionist">Impressionist</option>
-      <option value="pop-art">Pop Art</option>
-      <option value="digital-painting">Digital Painting</option>
-      <option value="minimalism">Minimalism</option>
-    </select>
-    <button class="button" id="generate">Generate Image</button>
-    <button class="button" id="saveMood">Save</button>
-    <button class="button" id="synthCalmHome">SynthCalm Home</button>
-  </div>
+    // State variables
+    let isRecording = false;
+    let selectedStyle = null;
 
-  <hr style="border: none; border-top: 1px solid #0ff; margin: 20px 0;" />
-  <p style="text-align:center;">Mood History</p>
-
-  <div class="image-frame">
-    <img id="generatedImage" alt="Generated Image"/>
-  </div>
-
-  <div id="thinking" style="display: none;">Generating...</div>
-
-  <div id="moodHistory"></div>
-</div>
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-  const canvas = document.getElementById("waveform");
-  const ctx = canvas.getContext("2d");
-  canvas.width = canvas.offsetWidth || 300;
-  canvas.height = 160;
-
-  const startBtn = document.getElementById("startVoice");
-  const styleSelect = document.getElementById("styleSelect");
-  const generateBtn = document.getElementById("generate");
-  const saveBtn = document.getElementById("saveMood");
-  const homeBtn = document.getElementById("synthCalmHome");
-  const countdownDisplay = document.getElementById("countdownDisplay");
-  const imageEl = document.getElementById("generatedImage");
-
-  let analyser, dataArray, audioCtx, source, micStream, recognition;
-  let isRecording = false;
-  let countdownInterval;
-
-  function updateDateTime() {
-    const now = new Date();
-    document.getElementById('dateTimeDisplay').textContent = now.toLocaleString();
-  }
-  setInterval(updateDateTime, 1000);
-  updateDateTime();
-
-  function drawWaveform() {
-    ctx.fillStyle = "black";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = "#ffff00";
-    ctx.lineWidth = 0.5;
-    for (let i = canvas.width / 10; i < canvas.width; i += canvas.width / 10) {
-      ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
+    // Update current time display
+    function updateTime() {
+      const now = new Date();
+      currentTime.textContent = now.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      }).replace(',', '');
     }
-    for (let i = canvas.height / 4; i < canvas.height; i += canvas.height / 4) {
-      ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); ctx.stroke();
-    }
-    if (analyser) {
-      requestAnimationFrame(drawWaveform);
-      analyser.getByteTimeDomainData(dataArray);
-      ctx.strokeStyle = "#ffff00";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      const sliceWidth = canvas.width / dataArray.length;
-      let x = 0;
-      for (let i = 0; i < dataArray.length; i++) {
-        const v = dataArray[i] / 128.0;
-        const y = (v * canvas.height) / 2;
-        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-        x += sliceWidth;
+    updateTime();
+    setInterval(updateTime, 1000);
+
+    // Start/Stop Voice button logic
+    startVoiceButton.addEventListener('click', () => {
+      if (!isRecording) {
+        // Start recording
+        startVoiceButton.textContent = 'Stop Voice';
+        startVoiceButton.classList.add('recording');
+        isRecording = true;
+        // Simulate voice recording (replace with actual voice recording logic)
+        setTimeout(() => {
+          activityInput.value = 'man when you think you just almost have it and then you know it breaks down after unbelievable image';
+        }, 2000);
+      } else {
+        // Stop recording
+        startVoiceButton.textContent = 'Start Voice';
+        startVoiceButton.classList.remove('recording');
+        isRecording = false;
+        // Make the "Choose Style" dropdown blink
+        styleSelect.classList.add('blink-yellow');
       }
-      ctx.stroke();
-    }
-  }
-  drawWaveform();
-
-  async function startRecording() {
-    if (isRecording) return stopRecording();
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return alert("Use Chrome. Speech not supported.");
-
-    try {
-      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      source = audioCtx.createMediaStreamSource(micStream);
-      analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 2048;
-      dataArray = new Uint8Array(analyser.fftSize);
-      source.connect(analyser);
-      drawWaveform();
-
-      recognition = new SR();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'en-US';
-      recognition.onresult = (e) => {
-        const text = Array.from(e.results).map(r => r[0].transcript).join('');
-        document.getElementById("activityInput").value = text;
-      };
-      recognition.onerror = (e) => alert("Speech error: " + e.error);
-      recognition.onend = () => { if (isRecording) recognition.start(); };
-
-      recognition.start();
-      isRecording = true;
-      startBtn.classList.add("recording");
-      startBtn.textContent = "Stop Voice";
-      startCountdown();
-    } catch (err) {
-      alert("Mic error: " + err.message);
-      stopRecording();
-    }
-  }
-
-  function stopRecording() {
-    if (recognition) recognition.stop();
-    if (micStream) micStream.getTracks().forEach(t => t.stop());
-    if (audioCtx) audioCtx.close();
-    analyser = null;
-    isRecording = false;
-    startBtn.classList.remove("recording");
-    startBtn.textContent = "Start Voice";
-    clearInterval(countdownInterval);
-    countdownDisplay.textContent = "00:60";
-    styleSelect.classList.add("blink-yellow");
-  }
-
-  function startCountdown() {
-    let seconds = 60;
-    countdownDisplay.textContent = `00:${seconds}`;
-    countdownInterval = setInterval(() => {
-      seconds--;
-      countdownDisplay.textContent = `00:${seconds < 10 ? "0" + seconds : seconds}`;
-      if (seconds <= 0) stopRecording();
-    }, 1000);
-  }
-
-  startBtn.addEventListener("click", startRecording);
-
-  styleSelect.addEventListener("change", () => {
-    styleSelect.classList.remove("blink-yellow");
-    styleSelect.classList.add("solid-yellow");
-    generateBtn.classList.add("blink-yellow");
-  });
-
-  generateBtn.addEventListener("click", async () => {
-    const prompt = document.getElementById("activityInput").value.trim();
-    const style = styleSelect.value;
-    if (!prompt) return alert("Enter a description.");
-    if (style === "none") return alert("Choose a style.");
-    generateBtn.disabled = true;
-    document.getElementById("thinking").style.display = "block";
-
-    try {
-      const res = await fetch('https://synthcalm-a2n7.onrender.com/generate-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, style })
-      });
-      if (!res.ok) throw new Error((await res.json()).error);
-      const data = await res.json();
-      imageEl.src = data.image;
-      imageEl.style.display = "block";
-      generateBtn.classList.remove("blink-yellow");
-      generateBtn.classList.add("solid-yellow");
-    } catch (err) {
-      alert("Error generating image: " + err.message);
-    } finally {
-      generateBtn.disabled = false;
-      document.getElementById("thinking").style.display = "none";
-
-      // Reset button glow styles after generation
-      styleSelect.classList.remove("solid-yellow", "blink-yellow");
-      generateBtn.classList.remove("solid-yellow", "blink-yellow");
-
-    }
-  });
-
-  saveBtn.addEventListener("click", () => {
-    const mood = document.getElementById("activityInput").value;
-    const img = imageEl.src;
-    const log = JSON.parse(localStorage.getItem('moodHistory') || '[]');
-    log.push({ mood, imageData: img, timestamp: new Date().toISOString() });
-    localStorage.setItem('moodHistory', JSON.stringify(log));
-    renderHistory();
-    saveBtn.classList.add("flash-magenta");
-    setTimeout(() => saveBtn.classList.remove("flash-magenta"), 500);
-  });
-
-  homeBtn.addEventListener("click", () => {
-    homeBtn.classList.add("flash-magenta");
-    setTimeout(() => homeBtn.classList.remove("flash-magenta"), 500);
-    window.location.href = "https://synthcalm.com";
-  });
-
-  document.getElementById("clear").addEventListener("click", () => {
-    document.getElementById("activityInput").value = "";
-    imageEl.style.display = "none";
-    styleSelect.classList.remove("solid-yellow", "blink-yellow");
-    generateBtn.classList.remove("solid-yellow", "blink-yellow");
-  });
-
-  function renderHistory() {
-    const log = JSON.parse(localStorage.getItem('moodHistory') || '[]');
-    const div = document.getElementById("moodHistory");
-    div.innerHTML = "";
-    log.forEach(entry => {
-      const el = document.createElement("div");
-      el.innerHTML = `<p>${entry.timestamp}: ${entry.mood}</p><img src="${entry.imageData}" style="max-width:100px;">`;
-      div.appendChild(el);
     });
-  }
-  renderHistory();
-});
-</script>
+
+    // Choose Style dropdown logic
+    styleSelect.addEventListener('change', () => {
+      selectedStyle = styleSelect.value;
+      if (selectedStyle) {
+        // Stop blinking on Choose Style
+        styleSelect.classList.remove('blink-yellow');
+        // Start blinking on Generate Image
+        generateImageButton.classList.add('blink-yellow');
+      }
+    });
+
+    // Generate Image button logic
+    generateImageButton.addEventListener('click', async () => {
+      if (!activityInput.value || !selectedStyle) {
+        alert('Please provide a prompt and select a style.');
+        return;
+      }
+
+      // Stop blinking on Generate Image
+      generateImageButton.classList.remove('blink-yellow');
+      // Highlight Generate Image and Generating dots in solid yellow
+      generateImageButton.classList.add('highlight-yellow');
+      thinkingDots.classList.add('highlight-yellow');
+      thinkingDots.style.display = 'block'; // Show the "Generating..." dots
+
+      try {
+        // Send request to the server to generate the image
+        const response = await fetch('/generate-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: activityInput.value, style: selectedStyle })
+        });
+
+        const data = await response.json();
+        if (data.image) {
+          // Add the image and voice script to Mood History
+          const moodHistory = document.getElementById('moodHistory');
+          const entry = document.createElement('div');
+          entry.className = 'history-entry';
+          const img = document.createElement('img');
+          img.src = data.image;
+          img.alt = 'Generated Image';
+          const text = document.createElement('span');
+          text.textContent = `${new Date().toISOString()}: ${activityInput.value}`;
+          entry.appendChild(img);
+          entry.appendChild(text);
+          moodHistory.appendChild(entry);
+
+          // Remove highlight from Generate Image and Generating dots
+          generateImageButton.classList.remove('highlight-yellow');
+          thinkingDots.classList.remove('highlight-yellow');
+          thinkingDots.style.display = 'none'; // Hide the dots
+
+          // Start blinking on Save button
+          saveButton.classList.add('blink-yellow');
+        } else {
+          throw new Error(data.error || 'No image returned');
+        }
+      } catch (error) {
+        console.error('Error generating image:', error);
+        alert('Failed to generate image: ' + error.message);
+        // Reset states on error
+        generateImageButton.classList.remove('highlight-yellow');
+        thinkingDots.classList.remove('highlight-yellow');
+        thinkingDots.style.display = 'none';
+      }
+    });
+
+    // Save button logic
+    saveButton.addEventListener('click', () => {
+      // Log the voice script and thumbnail (already added to Mood History)
+      console.log('Voice script and thumbnail logged:', {
+        prompt: activityInput.value,
+        image: document.querySelector('#moodHistory img:last-child')?.src
+      });
+
+      // Stop blinking on Save button
+      saveButton.classList.remove('blink-yellow');
+    });
+
+    // Clear button logic
+    clearButton.addEventListener('click', () => {
+      activityInput.value = '';
+      selectedStyle = null;
+      styleSelect.value = '';
+      // Reset all blinking and highlighting
+      styleSelect.classList.remove('blink-yellow');
+      generateImageButton.classList.remove('blink-yellow', 'highlight-yellow');
+      saveButton.classList.remove('blink-yellow');
+      thinkingDots.classList.remove('highlight-yellow');
+      thinkingDots.style.display = 'none';
+    });
+
+    // SynthCalm Home button logic (placeholder)
+    synthcalmHomeButton.addEventListener('click', () => {
+      alert('Returning to SynthCalm Home...');
+      // Add logic to navigate to the home page if needed
+    });
+  </script>
 </body>
 </html>
