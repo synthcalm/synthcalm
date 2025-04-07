@@ -74,9 +74,18 @@
     // Start Voice Recording
     let recognition;
     const startBtn = document.getElementById("startVoice");
+    let isRecording = false;
     startBtn.addEventListener("click", () => {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) return alert("SpeechRecognition not supported");
+
+      if (isRecording && recognition) {
+        recognition.stop();
+        startBtn.textContent = "Start Voice";
+        startBtn.classList.remove("recording");
+        isRecording = false;
+        return;
+      }
 
       recognition = new SpeechRecognition();
       recognition.continuous = true;
@@ -92,10 +101,14 @@
       recognition.onend = () => {
         console.log("Voice recognition ended");
         startBtn.classList.remove("recording");
+        startBtn.textContent = "Start Voice";
+        isRecording = false;
       };
 
       recognition.start();
       startBtn.classList.add("recording");
+      startBtn.textContent = "Stop Voice";
+      isRecording = true;
     });
 
     // Generate Image Sim
