@@ -157,16 +157,16 @@
       margin-top: 10px;
       font-size: 13px;
       color: #0ff;
-      text-align: center; /* Center the Mood History heading */
+      text-align: center;
     }
 
     .history-entry {
       display: flex;
-      justify-content: center; /* Center the entries */
+      justify-content: center;
       align-items: center;
       margin-bottom: 6px;
       gap: 8px;
-      text-align: center; /* Center the text within entries */
+      text-align: center;
     }
 
     .history-entry img {
@@ -263,31 +263,39 @@
     const thinkingDots = document.getElementById('thinking');
     const activityInput = document.getElementById('activityInput');
     const currentTime = document.getElementById('currentTime');
+    const waveformCanvas = document.getElementById('waveform');
+    const waveformCtx = waveformCanvas.getContext('2d');
 
     let isRecording = false;
     let selectedStyle = null;
     let recognition;
+    let audioContext;
+    let analyser;
+    let dataArray;
+    let animationFrameId;
 
-    // Check if the Web Speech API is supported
+    // Initialize Web Speech API
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
       recognition = new SpeechRecognition();
-      recognition.continuous = false; // Stop after one utterance
-      recognition.interimResults = false; // Only get final results
-      recognition.lang = 'en-US'; // Set language to English
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
 
       recognition.onresult = (event) => {
         const transcript = event.results[0][0].transcript;
         activityInput.value = transcript;
+        console.log('Speech recognized:', transcript);
       };
 
       recognition.onerror = (event) => {
         console.error('Speech recognition error:', event.error);
-        alert('Speech recognition error: ' + event.error);
+        alert('Speech recognition error: ' + event.error + '. Please ensure microphone access is granted and try again.');
         stopRecording();
       };
 
       recognition.onend = () => {
+        console.log('Speech recognition ended');
         stopRecording();
       };
     } else {
@@ -295,12 +303,72 @@
       alert('Speech Recognition API not supported in this browser. Please use Chrome or Edge.');
     }
 
+    // Initialize Web Audio API for waveform visualization
+    async function setupAudio() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioContext.createMediaStreamSource(stream);
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 2048;
+        source.connect(analyser);
+        dataArray = new Uint8Array(analyser.frequencyBinCount);
+        drawWaveform();
+      } catch (err) {
+        console.error('Error accessing microphone for waveform:', err);
+        alert('Error accessing microphone for waveform: ' + err.message);
+      }
+    }
+
+    function drawWaveform() {
+      if (!isRecording) {
+        cancelAnimationFrame(animationFrameId);
+        waveformCtx.clearRect(0, 0, waveformCanvas.width, waveformCanvas.height);
+        return;
+      }
+
+      analyser.getByteTimeDomainData(dataArray);
+      waveformCtx.clearRect(0, 0, waveformCanvas.width, waveformCanvas.height);
+      waveformCtx.lineWidth = 2;
+      waveformCtx.strokeStyle = '#0ff';
+      waveformCtx.beginPath();
+
+      const sliceWidth = waveformCanvas.width / dataArray.length;
+      let x = 0;
+
+      for (let i = 0; i < dataArray.length; i++) {
+        const v = dataArray[i] / 128.0;
+        const y = (v * waveformCanvas.height) / 2;
+
+        if (i === 0) {
+          waveformCtx.moveTo(x, y);
+        } else {
+          waveformCtx.lineTo(x, y);
+        }
+
+        x += sliceWidth;
+      }
+
+      waveformCtx.lineTo(waveformCanvas.width, waveformCanvas.height / 2);
+      waveformCtx.stroke();
+
+      animationFrameId = requestAnimationFrame(drawWaveform);
+    }
+
     function stopRecording() {
-      startVoiceButton.textContent = 'START VOICE';
-      startVoiceButton.classList.remove('recording');
-      isRecording = false;
-      console.log('Stop Voice clicked, adding blink-yellow to styleSelect');
-      styleSelect.classList.add('blink-yellow');
+      if (isRecording) {
+        isRecording = false;
+        startVoiceButton.textContent = 'START VOICE';
+        startVoiceButton.classList.remove('recording');
+        if (audioContext) {
+          audioContext.close();
+          audioContext = null;
+        }
+        cancelAnimationFrame(animationFrameId);
+        waveformCtx.clearRect(0, 0, waveformCanvas.width, waveformCanvas.height);
+        console.log('Stop Voice clicked, adding blink-yellow to styleSelect');
+        styleSelect.classList.add('blink-yellow');
+      }
     }
 
     function updateTime() {
@@ -318,28 +386,30 @@
     updateTime();
     setInterval(updateTime, 1000);
 
-    startVoiceButton.addEventListener('click', () => {
+    startVoiceButton.addEventListener('click', async () => {
       if (!isRecording) {
         if (!SpeechRecognition) {
           alert('Speech Recognition API not supported. Please use Chrome or Edge.');
           return;
         }
+        console.log('Starting voice recording');
         startVoiceButton.textContent = 'STOP VOICE';
         startVoiceButton.classList.add('recording');
         isRecording = true;
         activityInput.value = ''; // Clear the textarea
+        await setupAudio(); // Initialize audio for waveform
         recognition.start();
       } else {
-        recognition.stop(); // This will trigger the onend event, which calls stopRecording()
+        console.log('Stopping voice recording');
+        recognition.stop();
       }
     });
 
     styleSelect.addEventListener('change', () => {
       selectedStyle = styleSelect.value;
       if (selectedStyle) {
-        // Reset the Start Voice button to its initial state
         if (isRecording) {
-          recognition.stop(); // Stop recording if it's still active
+          recognition.stop();
         }
         startVoiceButton.textContent = 'START VOICE';
         startVoiceButton.classList.remove('recording');
