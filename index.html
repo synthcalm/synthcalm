@@ -49,7 +49,7 @@
     <p style="color:#0ff;font-size:14px;text-align:center;">Mood History</p>
 
     <div class="image-frame">
-      <img id="generatedImage" />
+      <img id="generatedImage" style="display:none;" />
     </div>
 
     <div id="moodHistory" style="min-height: 100px;"></div>
@@ -92,17 +92,15 @@
         return;
       }
 
-      document.getElementById('thinking').style.display = 'block';
+      document.getElementById('generatedImage').style.display = 'none';
+      const imageUrl = `https://via.placeholder.com/400x300/000000/0ff?text=${encodeURIComponent(style)}`;
 
-      // Simulate image generation delay
+      // Simulate image generation
       setTimeout(() => {
-        document.getElementById('thinking').style.display = 'none';
-        document.getElementById('generatedImage').src = `https://via.placeholder.com/400x300/000000/0ff?text=${encodeURIComponent(style)}`;
+        document.getElementById('generatedImage').src = imageUrl;
         document.getElementById('generatedImage').style.display = 'block';
       }, 2000);
     });
   </script>
-
-  <script src="/synthcalm/script.js"></script>
 </body>
 </html>
