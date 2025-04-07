@@ -55,6 +55,7 @@
       box-sizing: border-box;
       font-family: 'Courier New', monospace;
       font-size: 14px;
+      text-transform: uppercase; /* Convert all text to uppercase */
     }
 
     /* Specific styles for textarea */
@@ -64,6 +65,7 @@
       resize: none;
       overflow-wrap: break-word;
       font-size: 14px;
+      text-transform: none; /* Keep textarea content as-is */
     }
 
     /* Styled dropdown to look like buttons */
@@ -92,6 +94,13 @@
       font-size: 14px;
       background: #000;
       color: #0ff;
+      text-transform: uppercase; /* Convert dropdown options to uppercase */
+    }
+
+    /* Hover effect for Choose Style dropdown */
+    select#styleSelect:hover {
+      background: #0ff;
+      color: #000;
     }
 
     .button-group {
@@ -190,8 +199,9 @@
       100% { border-color: #0ff; } /* Back to cyan */
     }
 
-    .blink-yellow {
-      animation: soft-blink 1.5s infinite ease-in-out;
+    select#styleSelect.blink-yellow,
+    .button.blink-yellow {
+      animation: soft-blink 1.5s infinite ease-in-out !important;
     }
 
     /* Solid Yellow Highlight (for Generate Image button and Generating dots) */
@@ -215,33 +225,33 @@
     </div>
     <textarea id="activityInput" readonly></textarea>
     <div class="button-group">
-      <button id="startVoice" class="button">Start Voice</button>
-      <button id="clear" class="button">Clear</button>
+      <button id="startVoice" class="button">START VOICE</button>
+      <button id="clear" class="button">CLEAR</button>
     </div>
     <div class="button-group">
       <select id="styleSelect">
-        <option value="">Choose Style</option>
-        <option value="photo">Photo</option>
-        <option value="anime">Anime</option>
-        <option value="abstract">Abstract</option>
-        <option value="surrealism">Surrealism</option>
-        <option value="post-modern">Post-Modern</option>
-        <option value="cyberpunk">Cyberpunk</option>
-        <option value="arabic-calligraphy">Arabic Calligraphy</option>
-        <option value="chinese-calligraphy">Chinese Calligraphy</option>
-        <option value="japanese-calligraphy">Japanese Calligraphy</option>
-        <option value="marvel">Marvel</option>
-        <option value="art-deco">Art Deco</option>
-        <option value="impressionist">Impressionist</option>
-        <option value="pop-art">Pop Art</option>
-        <option value="digital-painting">Digital Painting</option>
-        <option value="minimalism">Minimalism</option>
+        <option value="">CHOOSE STYLE</option>
+        <option value="photo">PHOTO</option>
+        <option value="anime">ANIME</option>
+        <option value="abstract">ABSTRACT</option>
+        <option value="surrealism">SURREALISM</option>
+        <option value="post-modern">POST-MODERN</option>
+        <option value="cyberpunk">CYBERPUNK</option>
+        <option value="arabic-calligraphy">ARABIC CALLIGRAPHY</option>
+        <option value="chinese-calligraphy">CHINESE CALLIGRAPHY</option>
+        <option value="japanese-calligraphy">JAPANESE CALLIGRAPHY</option>
+        <option value="marvel">MARVEL</option>
+        <option value="art-deco">ART DECO</option>
+        <option value="impressionist">IMPRESSIONIST</option>
+        <option value="pop-art">POP ART</option>
+        <option value="digital-painting">DIGITAL PAINTING</option>
+        <option value="minimalism">MINIMALISM</option>
       </select>
-      <button id="generateImage" class="button">Generate Image</button>
+      <button id="generateImage" class="button">GENERATE IMAGE</button>
     </div>
     <div class="button-group">
-      <button id="save" class="button">Save</button>
-      <button id="synthcalmHome" class="button">SynthCalm Home</button>
+      <button id="save" class="button">SAVE</button>
+      <button id="synthcalmHome" class="button">SYNTHCALM HOME</button>
     </div>
     <div id="thinking">GENERATING...</div>
     <div id="moodHistory">
@@ -285,7 +295,7 @@
     startVoiceButton.addEventListener('click', () => {
       if (!isRecording) {
         // Start recording
-        startVoiceButton.textContent = 'Stop Voice';
+        startVoiceButton.textContent = 'STOP VOICE';
         startVoiceButton.classList.add('recording');
         isRecording = true;
         // Simulate voice recording (replace with actual voice recording logic)
@@ -294,10 +304,11 @@
         }, 2000);
       } else {
         // Stop recording
-        startVoiceButton.textContent = 'Start Voice';
+        startVoiceButton.textContent = 'START VOICE';
         startVoiceButton.classList.remove('recording');
         isRecording = false;
         // Make the "Choose Style" dropdown blink
+        console.log('Stop Voice clicked, adding blink-yellow to styleSelect');
         styleSelect.classList.add('blink-yellow');
       }
     });
@@ -307,8 +318,10 @@
       selectedStyle = styleSelect.value;
       if (selectedStyle) {
         // Stop blinking on Choose Style
+        console.log('Style selected:', selectedStyle, 'removing blink-yellow from styleSelect');
         styleSelect.classList.remove('blink-yellow');
         // Start blinking on Generate Image
+        console.log('Adding blink-yellow to generateImageButton');
         generateImageButton.classList.add('blink-yellow');
       }
     });
@@ -321,6 +334,7 @@
       }
 
       // Stop blinking on Generate Image
+      console.log('Generate Image clicked, removing blink-yellow from generateImageButton');
       generateImageButton.classList.remove('blink-yellow');
       // Highlight Generate Image and Generating dots in solid yellow
       generateImageButton.classList.add('highlight-yellow');
@@ -356,6 +370,7 @@
           thinkingDots.style.display = 'none'; // Hide the dots
 
           // Start blinking on Save button
+          console.log('Image generated, adding blink-yellow to saveButton');
           saveButton.classList.add('blink-yellow');
         } else {
           throw new Error(data.error || 'No image returned');
@@ -373,12 +388,13 @@
     // Save button logic
     saveButton.addEventListener('click', () => {
       // Log the voice script and thumbnail (already added to Mood History)
-      console.log('Voice script and thumbnail logged:', {
+      console.log('Save clicked, voice script and thumbnail logged:', {
         prompt: activityInput.value,
         image: document.querySelector('#moodHistory img:last-child')?.src
       });
 
       // Stop blinking on Save button
+      console.log('Removing blink-yellow from saveButton');
       saveButton.classList.remove('blink-yellow');
     });
 
