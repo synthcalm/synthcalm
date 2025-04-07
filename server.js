@@ -9,21 +9,21 @@ app.use(cors());
 app.use(express.json());
 
 const styleMap = {
-  "photo": "enhance",
+  "photo": "photographic",
   "anime": "anime",
   "abstract": "enhance",
-  "surrealism": "enhance",
+  "surrealism": "fantasy-art",
   "post-modern": "enhance",
-  "cyberpunk": "cinematic",
-  "arabic-calligraphy": "enhance",
-  "chinese-calligraphy": "enhance",
-  "japanese-calligraphy": "enhance",
+  "cyberpunk": "cyberpunk",
+  "arabic-calligraphy": "line-art",
+  "chinese-calligraphy": "line-art",
+  "japanese-calligraphy": "line-art",
   "marvel": "comic-book",
-  "art-deco": "digital-art",
-  "impressionist": "enhance",
-  "pop-art": "digital-art",
+  "art-deco": "isometric",
+  "impressionist": "analog-film",
+  "pop-art": "vibrant",
   "digital-painting": "digital-art",
-  "minimalism": "enhance"
+  "minimalism": "minimalist"
 };
 
 app.post('/generate-image', async (req, res) => {
@@ -40,18 +40,16 @@ app.post('/generate-image', async (req, res) => {
 
   const stylePreset = styleMap[style] || 'enhance';
 
-  console.log(`🧠 Sending to Stability: "${prompt}" with style "${stylePreset}"`);
-
-  const requestBody = {
-    prompt,
-    style_preset: stylePreset,
-    output_format: "png"
-  };
+  console.log(`🧠 Sending prompt to Stability: "${prompt}" with style: "${stylePreset}"`);
 
   try {
     const response = await axios.post(
       'https://api.stability.ai/v2beta/stable-image/generate/core',
-      requestBody,
+      {
+        prompt,
+        style_preset: stylePreset,
+        output_format: "png"
+      },
       {
         headers: {
           Authorization: `Bearer ${apiKey}`,
@@ -67,12 +65,15 @@ app.post('/generate-image', async (req, res) => {
 
     console.log('✅ Image generated successfully');
   } catch (error) {
-    const err = error.response?.data || error.message;
-    console.error('❌ Image generation error:', err);
-    res.status(400).json({ error: `Image generation failed: ${err}` });
+    const errMsg = error?.response?.data?.error || error.message || 'Unknown error';
+    console.error('❌ Stability API error:', errMsg);
+
+    res.status(error?.response?.status || 500).json({
+      error: `Image generation failed: ${errMsg}`
+    });
   }
 });
 
 app.listen(port, () => {
-  console.log(`✅ Server running on port ${port}`);
+  console.log(`✅ Server is running on port ${port}`);
 });
