@@ -10,16 +10,6 @@
       border-color: magenta;
       color: magenta;
     }
-    #waveform {
-      width: 100%;
-      height: 160px;
-      background: black;
-    }
-    #generatedImage {
-      display: none;
-      width: 400px;
-      height: 300px;
-    }
   </style>
 </head>
 <body>
@@ -65,7 +55,7 @@
     <p style="color:#0ff;font-size:14px;text-align:center;">Mood History</p>
 
     <div class="image-frame">
-      <img id="generatedImage" alt="Generated Mood Art" />
+      <img id="generatedImage" />
     </div>
 
     <div id="moodHistory" style="min-height: 100px;"></div>
@@ -73,7 +63,6 @@
   </div>
 
   <script>
-    // === Clock Display ===
     function updateDateTime() {
       const now = new Date();
       const formatted = now.toLocaleString();
@@ -82,179 +71,134 @@
     setInterval(updateDateTime, 1000);
     updateDateTime();
 
-    // === Waveform Visualization ===
+    // Waveform
     const canvas = document.getElementById("waveform");
     const ctx = canvas.getContext("2d");
     canvas.width = canvas.offsetWidth;
-    canvas.height = 160;
-
-    let analyser, dataArray, audioCtx, source, micStream;
-
-    function drawWaveform() {
-      if (!analyser) {
-        ctx.fillStyle = "black";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        return;
+    canvas.height = canvas.offsetHeight;
+    const gridSize = 20;
+    function drawGrid() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = "rgba(255, 255, 0, 0.3)";
+      for (let x = 0; x < canvas.width; x += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
       }
-      requestAnimationFrame(drawWaveform);
-      analyser.getByteTimeDomainData(dataArray);
-      ctx.fillStyle = "black";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.strokeStyle = "#ffff00";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      const sliceWidth = canvas.width / dataArray.length;
-      let x = 0;
-      for (let i = 0; i < dataArray.length; i++) {
-        const v = dataArray[i] / 128.0;
-        const y = (v * canvas.height) / 2;
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-        x += sliceWidth;
+      for (let y = 0; y < canvas.height; y += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
       }
-      ctx.lineTo(canvas.width, canvas.height / 2);
-      ctx.stroke();
     }
-    drawWaveform(); // Initial call to clear the canvas
+    drawGrid();
 
-    // === Voice Recording and Speech Recognition ===
     let recognition;
     const startBtn = document.getElementById("startVoice");
-    const countdownDisplay = document.getElementById("countdownDisplay");
     let isRecording = false;
-    let countdownInterval;
+    let micStream, audioContext, analyser, dataArray, rafId;
 
     startBtn.addEventListener("click", async () => {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-        alert("SpeechRecognition not supported in this browser. Please use Chrome or Edge.");
+      if (!SpeechRecognition) return alert("SpeechRecognition not supported");
+
+      if (isRecording && recognition) {
+        recognition.stop();
+        stopVisualizer();
+        startBtn.textContent = "Start Voice";
+        startBtn.classList.remove("recording");
+        isRecording = false;
         return;
       }
 
-      if (isRecording) {
-        stopRecording();
-        return;
-      }
+      recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+      recognition.onresult = (event) => {
+        const transcript = Array.from(event.results).map(r => r[0].transcript).join('');
+        document.getElementById("activityInput").value = transcript;
+      };
+      recognition.onerror = (event) => console.error("Speech error", event);
+      recognition.onend = () => {
+        startBtn.classList.remove("recording");
+        startBtn.textContent = "Start Voice";
+        stopVisualizer();
+        isRecording = false;
+      };
+      recognition.start();
 
-      // Request microphone access and set up audio context for waveform
+      startBtn.classList.add("recording");
+      startBtn.textContent = "Stop Voice";
+      isRecording = true;
+
       try {
-        console.log("Requesting microphone access");
         micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        console.log("Microphone access granted");
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        source = audioCtx.createMediaStreamSource(micStream);
-        analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 2048;
-        dataArray = new Uint8Array(analyser.fftSize);
-        source.connect(analyser);
-        console.log("Audio context and analyser set up");
-        drawWaveform();
-      } catch (err) {
-        console.error("Microphone access denied:", err);
-        alert("Failed to access microphone: " + err.message);
-        return;
-      }
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = audioContext.createAnalyser();
+        const micSource = audioContext.createMediaStreamSource(micStream);
+        micSource.connect(analyser);
+        analyser.fftSize = 256;
+        const bufferLength = analyser.frequencyBinCount;
+        dataArray = new Uint8Array(bufferLength);
 
-      // Set up speech recognition
-      try {
-        recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = 'en-US';
-
-        recognition.onresult = (event) => {
-          const transcript = Array.from(event.results).map(r => r[0].transcript).join('');
-          document.getElementById("activityInput").value = transcript;
-          console.log("Speech recognition result:", transcript);
-        };
-
-        recognition.onerror = (event) => {
-          console.error("Speech recognition error:", event.error);
-          if (event.error === "not-allowed") {
-            alert("Microphone access for speech recognition denied.");
+        function animate() {
+          analyser.getByteTimeDomainData(dataArray);
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          drawGrid();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = "yellow";
+          ctx.beginPath();
+          const sliceWidth = canvas.width / bufferLength;
+          let x = 0;
+          for (let i = 0; i < bufferLength; i++) {
+            const v = dataArray[i] / 128.0;
+            const y = v * canvas.height / 2;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+            x += sliceWidth;
           }
-        };
-
-        recognition.onend = () => {
-          console.log("Speech recognition ended");
-          if (isRecording) recognition.start(); // Restart if still recording
-        };
-
-        console.log("Starting speech recognition");
-        recognition.start();
-        isRecording = true;
-        startBtn.classList.add("recording");
-        startBtn.textContent = "Stop Voice";
-        startCountdown();
+          ctx.lineTo(canvas.width, canvas.height / 2);
+          ctx.stroke();
+          rafId = requestAnimationFrame(animate);
+        }
+        animate();
       } catch (err) {
-        console.error("Speech recognition failed to start:", err);
-        alert("Failed to start speech recognition: " + err.message);
-        stopRecording();
+        console.error("Mic access failed:", err);
       }
     });
 
-    function stopRecording() {
-      if (recognition) recognition.stop();
-      if (micStream) micStream.getTracks().forEach(track => track.stop());
-      if (audioCtx) audioCtx.close();
-      analyser = null; // Stop waveform
-      isRecording = false;
-      startBtn.classList.remove("recording");
-      startBtn.textContent = "Start Voice";
-      clearInterval(countdownInterval);
-      countdownDisplay.textContent = "00:60";
+    function stopVisualizer() {
+      if (rafId) cancelAnimationFrame(rafId);
+      if (audioContext) audioContext.close();
+      if (micStream) {
+        micStream.getTracks().forEach(track => track.stop());
+      }
+      drawGrid();
     }
 
-    function startCountdown() {
-      let seconds = 60;
-      countdownDisplay.textContent = `00:${seconds}`;
-      countdownInterval = setInterval(() => {
-        seconds--;
-        countdownDisplay.textContent = `00:${seconds < 10 ? "0" + seconds : seconds}`;
-        if (seconds <= 0) stopRecording();
-      }, 1000);
-    }
-
-    // === Image Generation ===
     document.getElementById("generate").addEventListener("click", () => {
-      const mood = document.getElementById("activityInput").value.trim();
+      const mood = document.getElementById("activityInput").value;
       const style = document.getElementById("styleSelect").value;
-      const img = document.getElementById("generatedImage");
-
       if (!mood || style === "none") {
         alert("Please enter your mood and select a style.");
         return;
       }
-
       document.getElementById("thinking").style.display = "block";
       setTimeout(() => {
         document.getElementById("thinking").style.display = "none";
-        const imgUrl = `https://placehold.co/400x300/000000/0ff?text=${encodeURIComponent(style)}`;
-        console.log("Setting image src to:", imgUrl);
-        img.src = imgUrl;
-        img.style.display = "block";
-        img.onerror = () => {
-          console.error("Failed to load image from placeholder service");
-          img.src = "https://placehold.co/400x300/000000/0ff?text=Error+Loading+Image";
-          alert("Failed to load the generated image. Using fallback.");
-        };
+        document.getElementById("generatedImage").src = `https://via.placeholder.com/400x300/000000/0ff?text=${encodeURIComponent(style)}`;
+        document.getElementById("generatedImage").style.display = "block";
       }, 2000);
     });
 
-    // === Save Mood to History ===
     document.getElementById("saveMood").addEventListener("click", () => {
-      const moodText = document.getElementById("activityInput").value.trim();
-      if (!moodText) {
-        alert("Please enter a mood to save.");
-        return;
-      }
-
+      const moodText = document.getElementById("activityInput").value;
       const timestamp = new Date().toLocaleString();
       const img = document.getElementById("generatedImage");
-      const imgSrc = img && img.src && img.style.display !== "none"
-        ? img.src
-        : 'https://placehold.co/40x40/000000/0ff?text=🖼️';
-
+      const imgSrc = img && img.src ? img.src : 'https://via.placeholder.com/40x40/000000/0ff?text=🖼️';
       const entry = document.createElement("div");
       entry.className = "history-entry";
       entry.innerHTML = `
@@ -268,12 +212,9 @@
       document.getElementById("moodHistory").prepend(entry);
     });
 
-    // === Clear Input and Image ===
     document.getElementById("clear").addEventListener("click", () => {
       document.getElementById("activityInput").value = "";
-      const img = document.getElementById("generatedImage");
-      img.src = "";
-      img.style.display = "none";
+      document.getElementById("generatedImage").style.display = "none";
     });
   </script>
 </body>
