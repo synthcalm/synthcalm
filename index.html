@@ -55,24 +55,22 @@
       box-sizing: border-box;
       font-family: 'Courier New', monospace;
       font-size: 14px;
-      text-transform: uppercase; /* Convert all text to uppercase */
+      text-transform: uppercase;
     }
 
-    /* Specific styles for textarea */
     textarea#activityInput {
       max-width: 100%;
       min-height: 60px;
       resize: none;
       overflow-wrap: break-word;
       font-size: 14px;
-      text-transform: none; /* Keep textarea content as-is */
+      text-transform: none;
     }
 
-    /* Styled dropdown to look like buttons */
     select#styleSelect {
       text-align: center;
       text-align-last: center;
-      -webkit-text-align-last: center; /* Safari (iOS/iPad) */
+      -webkit-text-align-last: center;
       -moz-text-align-last: center;
       -webkit-appearance: none;
       -moz-appearance: none;
@@ -87,17 +85,15 @@
       cursor: pointer;
     }
 
-    /* Dropdown options style */
     select#styleSelect option {
       text-align: center;
       font-family: 'Courier New', monospace;
       font-size: 14px;
       background: #000;
       color: #0ff;
-      text-transform: uppercase; /* Convert dropdown options to uppercase */
+      text-transform: uppercase;
     }
 
-    /* Hover effect for Choose Style dropdown */
     select#styleSelect:hover {
       background: #0ff;
       color: #000;
@@ -155,21 +151,22 @@
       margin-top: 5px;
       margin-bottom: 10px;
       height: 20px;
-      display: none;
     }
 
     #moodHistory {
       margin-top: 10px;
       font-size: 13px;
       color: #0ff;
+      text-align: center; /* Center the Mood History heading */
     }
 
     .history-entry {
       display: flex;
-      justify-content: space-between;
+      justify-content: center; /* Center the entries */
       align-items: center;
       margin-bottom: 6px;
       gap: 8px;
+      text-align: center; /* Center the text within entries */
     }
 
     .history-entry img {
@@ -192,11 +189,10 @@
       color: #000;
     }
 
-    /* Soft Blinking Yellow Border Effect */
     @keyframes soft-blink {
-      0% { border-color: #0ff; } /* Default cyan border */
-      50% { border-color: #ffff00; } /* Yellow */
-      100% { border-color: #0ff; } /* Back to cyan */
+      0% { border-color: #0ff; }
+      50% { border-color: #ffff00; }
+      100% { border-color: #0ff; }
     }
 
     select#styleSelect.blink-yellow,
@@ -204,15 +200,13 @@
       animation: soft-blink 1.5s infinite ease-in-out !important;
     }
 
-    /* Solid Yellow Highlight (for Generate Image button and Generating dots) */
     .highlight-yellow {
-      border-color: #ffff00 !important; /* Solid yellow border */
-      color: #0ff; /* Keep text color cyan for buttons */
+      border-color: #ffff00 !important;
+      color: #0ff;
     }
 
-    /* Apply yellow color to the Generating dots when highlighted */
     #thinking.highlight-yellow {
-      color: #ffff00 !important; /* Yellow text for the dots */
+      color: #ffff00 !important;
     }
   </style>
 </head>
@@ -260,7 +254,6 @@
   </div>
 
   <script>
-    // Select DOM elements
     const startVoiceButton = document.getElementById('startVoice');
     const styleSelect = document.getElementById('styleSelect');
     const generateImageButton = document.getElementById('generateImage');
@@ -271,11 +264,45 @@
     const activityInput = document.getElementById('activityInput');
     const currentTime = document.getElementById('currentTime');
 
-    // State variables
     let isRecording = false;
     let selectedStyle = null;
+    let recognition;
 
-    // Update current time display
+    // Check if the Web Speech API is supported
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      recognition = new SpeechRecognition();
+      recognition.continuous = false; // Stop after one utterance
+      recognition.interimResults = false; // Only get final results
+      recognition.lang = 'en-US'; // Set language to English
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        activityInput.value = transcript;
+      };
+
+      recognition.onerror = (event) => {
+        console.error('Speech recognition error:', event.error);
+        alert('Speech recognition error: ' + event.error);
+        stopRecording();
+      };
+
+      recognition.onend = () => {
+        stopRecording();
+      };
+    } else {
+      console.error('Speech Recognition API not supported in this browser.');
+      alert('Speech Recognition API not supported in this browser. Please use Chrome or Edge.');
+    }
+
+    function stopRecording() {
+      startVoiceButton.textContent = 'START VOICE';
+      startVoiceButton.classList.remove('recording');
+      isRecording = false;
+      console.log('Stop Voice clicked, adding blink-yellow to styleSelect');
+      styleSelect.classList.add('blink-yellow');
+    }
+
     function updateTime() {
       const now = new Date();
       currentTime.textContent = now.toLocaleString('en-US', {
@@ -291,58 +318,53 @@
     updateTime();
     setInterval(updateTime, 1000);
 
-    // Start/Stop Voice button logic
     startVoiceButton.addEventListener('click', () => {
       if (!isRecording) {
-        // Start recording
+        if (!SpeechRecognition) {
+          alert('Speech Recognition API not supported. Please use Chrome or Edge.');
+          return;
+        }
         startVoiceButton.textContent = 'STOP VOICE';
         startVoiceButton.classList.add('recording');
         isRecording = true;
-        // Simulate voice recording (replace with actual voice recording logic)
-        setTimeout(() => {
-          activityInput.value = 'man when you think you just almost have it and then you know it breaks down after unbelievable image';
-        }, 2000);
+        activityInput.value = ''; // Clear the textarea
+        recognition.start();
       } else {
-        // Stop recording
-        startVoiceButton.textContent = 'START VOICE';
-        startVoiceButton.classList.remove('recording');
-        isRecording = false;
-        // Make the "Choose Style" dropdown blink
-        console.log('Stop Voice clicked, adding blink-yellow to styleSelect');
-        styleSelect.classList.add('blink-yellow');
+        recognition.stop(); // This will trigger the onend event, which calls stopRecording()
       }
     });
 
-    // Choose Style dropdown logic
     styleSelect.addEventListener('change', () => {
       selectedStyle = styleSelect.value;
       if (selectedStyle) {
-        // Stop blinking on Choose Style
+        // Reset the Start Voice button to its initial state
+        if (isRecording) {
+          recognition.stop(); // Stop recording if it's still active
+        }
+        startVoiceButton.textContent = 'START VOICE';
+        startVoiceButton.classList.remove('recording');
+        isRecording = false;
+
         console.log('Style selected:', selectedStyle, 'removing blink-yellow from styleSelect');
         styleSelect.classList.remove('blink-yellow');
-        // Start blinking on Generate Image
         console.log('Adding blink-yellow to generateImageButton');
         generateImageButton.classList.add('blink-yellow');
       }
     });
 
-    // Generate Image button logic
     generateImageButton.addEventListener('click', async () => {
       if (!activityInput.value || !selectedStyle) {
         alert('Please provide a prompt and select a style.');
         return;
       }
 
-      // Stop blinking on Generate Image
       console.log('Generate Image clicked, removing blink-yellow from generateImageButton');
       generateImageButton.classList.remove('blink-yellow');
-      // Highlight Generate Image and Generating dots in solid yellow
       generateImageButton.classList.add('highlight-yellow');
       thinkingDots.classList.add('highlight-yellow');
-      thinkingDots.style.display = 'block'; // Show the "Generating..." dots
+      thinkingDots.style.display = 'block';
 
       try {
-        // Send request to the server to generate the image
         const response = await fetch('/generate-image', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -351,7 +373,6 @@
 
         const data = await response.json();
         if (data.image) {
-          // Add the image and voice script to Mood History
           const moodHistory = document.getElementById('moodHistory');
           const entry = document.createElement('div');
           entry.className = 'history-entry';
@@ -364,12 +385,10 @@
           entry.appendChild(text);
           moodHistory.appendChild(entry);
 
-          // Remove highlight from Generate Image and Generating dots
           generateImageButton.classList.remove('highlight-yellow');
           thinkingDots.classList.remove('highlight-yellow');
-          thinkingDots.style.display = 'none'; // Hide the dots
+          thinkingDots.style.display = 'none';
 
-          // Start blinking on Save button
           console.log('Image generated, adding blink-yellow to saveButton');
           saveButton.classList.add('blink-yellow');
         } else {
@@ -378,32 +397,26 @@
       } catch (error) {
         console.error('Error generating image:', error);
         alert('Failed to generate image: ' + error.message);
-        // Reset states on error
         generateImageButton.classList.remove('highlight-yellow');
         thinkingDots.classList.remove('highlight-yellow');
         thinkingDots.style.display = 'none';
       }
     });
 
-    // Save button logic
     saveButton.addEventListener('click', () => {
-      // Log the voice script and thumbnail (already added to Mood History)
       console.log('Save clicked, voice script and thumbnail logged:', {
         prompt: activityInput.value,
         image: document.querySelector('#moodHistory img:last-child')?.src
       });
 
-      // Stop blinking on Save button
       console.log('Removing blink-yellow from saveButton');
       saveButton.classList.remove('blink-yellow');
     });
 
-    // Clear button logic
     clearButton.addEventListener('click', () => {
       activityInput.value = '';
       selectedStyle = null;
       styleSelect.value = '';
-      // Reset all blinking and highlighting
       styleSelect.classList.remove('blink-yellow');
       generateImageButton.classList.remove('blink-yellow', 'highlight-yellow');
       saveButton.classList.remove('blink-yellow');
@@ -411,10 +424,8 @@
       thinkingDots.style.display = 'none';
     });
 
-    // SynthCalm Home button logic (placeholder)
     synthcalmHomeButton.addEventListener('click', () => {
       alert('Returning to SynthCalm Home...');
-      // Add logic to navigate to the home page if needed
     });
   </script>
 </body>
