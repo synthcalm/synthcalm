@@ -48,6 +48,7 @@ select#styleSelect {
     box-sizing: border-box;
     font-family: 'Courier New', monospace;
     font-size: 14px;
+    text-transform: uppercase; /* Convert all text to uppercase */
 }
 
 /* Specific styles for textarea */
@@ -57,6 +58,7 @@ textarea#activityInput {
     resize: none;
     overflow-wrap: break-word;
     font-size: 14px;
+    text-transform: none; /* Keep textarea content as-is */
 }
 
 /* Styled dropdown to look like buttons */
@@ -85,6 +87,13 @@ select#styleSelect option {
     font-size: 14px;
     background: #000;
     color: #0ff;
+    text-transform: uppercase; /* Convert dropdown options to uppercase */
+}
+
+/* Hover effect for Choose Style dropdown */
+select#styleSelect:hover {
+    background: #0ff;
+    color: #000;
 }
 
 .button-group {
@@ -155,6 +164,12 @@ select#styleSelect option {
     gap: 8px;
 }
 
+.history-entry img {
+    max-width: 100px;
+    max-height: 100px;
+    object-fit: contain;
+}
+
 .history-entry button {
     background: transparent;
     border: 1px solid #0ff;
@@ -176,8 +191,9 @@ select#styleSelect option {
     100% { border-color: #0ff; } /* Back to cyan */
 }
 
-.blink-yellow {
-    animation: soft-blink 1.5s infinite ease-in-out;
+select#styleSelect.blink-yellow,
+.button.blink-yellow {
+    animation: soft-blink 1.5s infinite ease-in-out !important;
 }
 
 /* Solid Yellow Highlight (for Generate Image button and Generating dots) */
