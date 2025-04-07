@@ -9,21 +9,21 @@ app.use(cors());
 app.use(express.json());
 
 const styleMap = {
-  "photo": "in a hyper-realistic photo style",
-  "anime": "in Japanese anime style",
-  "abstract": "in abstract artistic form",
-  "surrealism": "in surrealism style",
-  "post-modern": "in post-modern artistic style",
-  "cyberpunk": "in cyberpunk art style",
-  "arabic-calligraphy": "in Arabic calligraphy style",
-  "chinese-calligraphy": "in Chinese calligraphy brush style",
-  "japanese-calligraphy": "in Japanese ink calligraphy",
-  "marvel": "in Marvel comic book style",
-  "art-deco": "in an Art Deco illustration style",
-  "impressionist": "in impressionist painting style",
-  "pop-art": "in Pop Art style",
-  "digital-painting": "as a digital painting",
-  "minimalism": "in minimalist style"
+  "photo": "enhance",
+  "anime": "anime",
+  "abstract": "enhance",
+  "surrealism": "enhance",
+  "post-modern": "enhance",
+  "cyberpunk": "cinematic",
+  "arabic-calligraphy": "enhance",
+  "chinese-calligraphy": "enhance",
+  "japanese-calligraphy": "enhance",
+  "marvel": "comic-book",
+  "art-deco": "digital-art",
+  "impressionist": "enhance",
+  "pop-art": "digital-art",
+  "digital-painting": "digital-art",
+  "minimalism": "enhance"
 };
 
 app.post('/generate-image', async (req, res) => {
@@ -38,34 +38,25 @@ app.post('/generate-image', async (req, res) => {
     return res.status(500).json({ error: 'Stability API key not configured.' });
   }
 
-  const styleText = styleMap[style] || '';
-  const fullPrompt = `${prompt} ${styleText}`.trim();
+  const stylePreset = styleMap[style] || 'enhance';
 
-  console.log(`🧠 Sending prompt to Stability: "${fullPrompt}"`);
+  console.log(`🧠 Sending to Stability: "${prompt}" with style "${stylePreset}"`);
 
   const requestBody = {
-    text_prompts: [
-      {
-        text: fullPrompt,
-        weight: 1
-      }
-    ],
-    cfg_scale: 7,
-    clip_guidance_preset: 'FAST_BLUE',
-    height: 1024,
-    width: 1024,
-    samples: 1,
-    steps: 30
+    prompt,
+    style_preset: stylePreset,
+    output_format: "png"
   };
 
   try {
     const response = await axios.post(
-      'https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image',
+      'https://api.stability.ai/v2beta/stable-image/generate/core',
       requestBody,
       {
         headers: {
+          Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`
+          Accept: 'application/json'
         },
         responseType: 'arraybuffer'
       }
@@ -76,15 +67,12 @@ app.post('/generate-image', async (req, res) => {
 
     console.log('✅ Image generated successfully');
   } catch (error) {
-    const errMsg = error?.response?.data?.error || error.message || 'Unknown error';
-    console.error('❌ Stability API error:', errMsg);
-
-    res.status(error?.response?.status || 500).json({
-      error: `Image generation failed: ${errMsg}`
-    });
+    const err = error.response?.data || error.message;
+    console.error('❌ Image generation error:', err);
+    res.status(400).json({ error: `Image generation failed: ${err}` });
   }
 });
 
 app.listen(port, () => {
-  console.log(`✅ Server is running on port ${port}`);
+  console.log(`✅ Server running on port ${port}`);
 });
