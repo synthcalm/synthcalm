@@ -1,7 +1,6 @@
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
-const FormData = require('form-data'); // Import FormData
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -22,23 +21,28 @@ app.post('/generate-image', async (req, res) => {
             return res.status(500).json({ error: 'Stability API key not configured.' });
         }
 
-        const formData = new FormData();
-        formData.append('text_prompts[0][text]', prompt);
-        formData.append('text_prompts[0][weight]', '1');
-        formData.append('cfg_scale', '7');
-        formData.append('clip_guidance_preset', 'FAST_BLUE');
-        formData.append('height', '512');
-        formData.append('width', '512');
-        formData.append('samples', '1');
-        formData.append('steps', '30');
+        const requestBody = {
+            text_prompts: [
+                {
+                    text: prompt,
+                    weight: 1,
+                },
+            ],
+            cfg_scale: 7,
+            clip_guidance_preset: 'FAST_BLUE',
+            height: 1024, // Use allowed dimensions
+            width: 1024,  // Use allowed dimensions
+            samples: 1,
+            steps: 30,
+        };
 
         const response = await axios.post(
-            'https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image', // Text-to-image endpoint
-            formData,
+            'https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image',
+            requestBody,
             {
                 headers: {
-                    ...formData.getHeaders(),
-                    Authorization: apiKey,
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${apiKey}`,
                 },
                 responseType: 'arraybuffer',
             }
