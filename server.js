@@ -44,7 +44,12 @@ app.post('/generate-image', async (req, res) => {
   console.log(`🧠 Sending prompt to Stability: "${fullPrompt}"`);
 
   const requestBody = {
-    text_prompts: [{ text: fullPrompt, weight: 1 }], // ✅ FIXED THIS LINE
+    text_prompts: [
+      {
+        text: fullPrompt,
+        weight: 1
+      }
+    ],
     cfg_scale: 7,
     clip_guidance_preset: 'FAST_BLUE',
     height: 1024,
@@ -68,22 +73,15 @@ app.post('/generate-image', async (req, res) => {
 
     const base64Image = Buffer.from(response.data, 'binary').toString('base64');
     res.json({ image: `data:image/png;base64,${base64Image}` });
+
     console.log('✅ Image generated successfully');
   } catch (error) {
-    console.error('❌ Stability API error:', error?.response?.data || error.message);
+    const errMsg = error?.response?.data?.error || error.message || 'Unknown error';
+    console.error('❌ Stability API error:', errMsg);
 
-    if (axios.isAxiosError(error)) {
-      if (error.response) {
-        const message = error.response.data?.message || error.response.data?.error || 'Bad Request';
-        return res.status(error.response.status).json({ error: `Image generation failed: ${message}` });
-      } else if (error.request) {
-        return res.status(502).json({ error: 'No response from Stability API. Try again.' });
-      } else {
-        return res.status(500).json({ error: `Request setup error: ${error.message}` });
-      }
-    }
-
-    res.status(500).json({ error: 'Unexpected server error.' });
+    res.status(error?.response?.status || 500).json({
+      error: `Image generation failed: ${errMsg}`
+    });
   }
 });
 
