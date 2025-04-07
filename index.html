@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Mood Into Art</title>
   <link rel="stylesheet" href="/synthcalm/style.css"/>
+  <style>
+    #startVoice.recording {
+      border-color: magenta;
+      color: magenta;
+    }
+  </style>
 </head>
 <body>
   <div class="container">
@@ -67,7 +73,8 @@
 
     // Start Voice Recording
     let recognition;
-    document.getElementById("startVoice").addEventListener("click", () => {
+    const startBtn = document.getElementById("startVoice");
+    startBtn.addEventListener("click", () => {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) return alert("SpeechRecognition not supported");
 
@@ -82,9 +89,13 @@
       };
 
       recognition.onerror = (event) => console.error("Speech error", event);
-      recognition.onend = () => console.log("Voice recognition ended");
+      recognition.onend = () => {
+        console.log("Voice recognition ended");
+        startBtn.classList.remove("recording");
+      };
 
       recognition.start();
+      startBtn.classList.add("recording");
     });
 
     // Generate Image Sim
