@@ -45,15 +45,14 @@
       <button class="button" onclick="window.location.href='https://synthcalm.com'">Return to SynthCalm</button>
     </div>
 
-    <div id="thinking" style="display: none;">Generating ⠄</div>
+    <hr style="border: none; border-top: 1px solid #0ff; margin: 20px 0;" />
+    <p style="color:#0ff;font-size:14px;text-align:center;">Mood History</p>
 
     <div class="image-frame">
       <img id="generatedImage" />
     </div>
 
-    <div id="moodHistory">
-      <p style="color:#0ff;font-size:14px;text-align:center;">Mood History</p>
-    </div>
+    <div id="moodHistory"></div>
   </div>
 
   <script>
@@ -69,7 +68,8 @@
     document.getElementById('saveMood').addEventListener('click', () => {
       const moodText = document.getElementById('activityInput').value;
       const timestamp = new Date().toLocaleString();
-      const imgSrc = document.getElementById('generatedImage').src || 'https://via.placeholder.com/40x40/000000/0ff?text=🖼️';
+      const img = document.getElementById('generatedImage');
+      const imgSrc = img && img.src ? img.src : 'https://via.placeholder.com/40x40/000000/0ff?text=🖼️';
 
       const entry = document.createElement('div');
       entry.className = 'history-entry';
