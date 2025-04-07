@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Mood Into Art</title>
   <link rel="stylesheet" href="/synthcalm/style.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 </head>
 <body>
   <!-- force re-deploy -->
@@ -42,6 +43,7 @@
         <option value="minimalism">Minimalism</option>
       </select>
       <button class="button" id="generate">Generate Image</button>
+      <button class="button" id="saveButton">Save</button>
       <button class="button" onclick="window.location.href='https://synthcalm.com'">Return to SynthCalm</button>
     </div>
 
@@ -53,6 +55,26 @@
 
     <div id="moodHistory"></div>
   </div>
+
   <script src="/synthcalm/script.js"></script>
-</body>
-</html>
+
+  <!-- Supabase Setup -->
+  <script>
+    const supabase = supabase.createClient(
+      'https://ysuaedvcfplzzfcmmkgb.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzdWFlZHZjZnBsenpmY21ta2diIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI5NTk5MDEsImV4cCI6MjA1ODUzNTkwMX0.yNG-z5iMK2pDmxzTUoArJOivbGXTfSve2HyHH7YWgzc'
+    );
+
+    document.getElementById("saveButton").addEventListener("click", async () => {
+      const moodText = document.getElementById("activityInput").value;
+
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        alert("You must be signed in to save your mood.");
+        return;
+      }
+
+      const { data, error } = await supabase.from("mia_logs").insert([
+        {
+          user_id: user.id,
+          mood_text_
