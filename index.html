@@ -151,7 +151,7 @@
       margin-top: 5px;
       margin-bottom: 10px;
       height: 20px;
-      display: none;
+      display: none; /* Hide by default */
     }
 
     #moodHistory {
@@ -212,6 +212,296 @@
   </style>
 </head>
 <body>
-<!-- HTML continues as above, including JavaScript section -->
+  <div class="container">
+    <canvas id="waveform"></canvas>
+    <div class="footer-bar">
+      <span class="seven-segment" id="currentTime"></span>
+      <span class="seven-segment">00:60</span>
+    </div>
+    <textarea id="activityInput" readonly></textarea>
+    <div class="button-group">
+      <button id="startVoice" class="button">START VOICE</button>
+      <button id="clear" class="button">CLEAR</button>
+    </div>
+    <div class="button-group">
+      <select id="styleSelect">
+        <option value="">CHOOSE STYLE</option>
+        <option value="photo">PHOTO</option>
+        <option value="anime">ANIME</option>
+        <option value="abstract">ABSTRACT</option>
+        <option value="surrealism">SURREALISM</option>
+        <option value="post-modern">POST-MODERN</option>
+        <option value="cyberpunk">CYBERPUNK</option>
+        <option value="arabic-calligraphy">ARABIC CALLIGRAPHY</option>
+        <option value="chinese-calligraphy">CHINESE CALLIGRAPHY</option>
+        <option value="japanese-calligraphy">JAPANESE CALLIGRAPHY</option>
+        <option value="marvel">MARVEL</option>
+        <option value="art-deco">ART DECO</option>
+        <option value="impressionist">IMPRESSIONIST</option>
+        <option value="pop-art">POP ART</option>
+        <option value="digital-painting">DIGITAL PAINTING</option>
+        <option value="minimalism">MINIMALISM</option>
+      </select>
+      <button id="generateImage" class="button">GENERATE IMAGE</button>
+    </div>
+    <div class="button-group">
+      <button id="save" class="button">SAVE</button>
+      <button id="synthcalmHome" class="button">SYNTHCALM HOME</button>
+    </div>
+    <div id="thinking">GENERATING...</div>
+    <div id="moodHistory">
+      <h3>MOOD HISTORY</h3>
+    </div>
+  </div>
+
+  <script>
+    const startVoiceButton = document.getElementById('startVoice');
+    const styleSelect = document.getElementById('styleSelect');
+    const generateImageButton = document.getElementById('generateImage');
+    const saveButton = document.getElementById('save');
+    const clearButton = document.getElementById('clear');
+    const synthcalmHomeButton = document.getElementById('synthcalmHome');
+    const thinkingDots = document.getElementById('thinking');
+    const activityInput = document.getElementById('activityInput');
+    const currentTime = document.getElementById('currentTime');
+    const waveformCanvas = document.getElementById('waveform');
+    const waveformCtx = waveformCanvas.getContext('2d');
+
+    let isRecording = false;
+    let selectedStyle = null;
+    let recognition;
+    let audioContext;
+    let analyser;
+    let dataArray;
+    let animationFrameId;
+
+    // Initialize Web Speech API
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        activityInput.value = transcript;
+        console.log('Speech recognized:', transcript);
+      };
+
+      recognition.onerror = (event) => {
+        console.error('Speech recognition error:', event.error);
+        alert('Speech recognition error: ' + event.error + '. Please ensure microphone access is granted and try again.');
+        stopRecording();
+      };
+
+      recognition.onend = () => {
+        console.log('Speech recognition ended');
+        stopRecording();
+      };
+    } else {
+      console.error('Speech Recognition API not supported in this browser.');
+      alert('Speech Recognition API not supported in this browser. Please use Chrome or Edge.');
+    }
+
+    // Initialize Web Audio API for waveform visualization
+    async function setupAudio() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioContext.createMediaStreamSource(stream);
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 2048;
+        source.connect(analyser);
+        dataArray = new Uint8Array(analyser.frequencyBinCount);
+        drawWaveform();
+      } catch (err) {
+        console.error('Error accessing microphone for waveform:', err);
+        alert('Error accessing microphone for waveform: ' + err.message);
+      }
+    }
+
+    function drawWaveform() {
+      if (!isRecording) {
+        cancelAnimationFrame(animationFrameId);
+        waveformCtx.clearRect(0, 0, waveformCanvas.width, waveformCanvas.height);
+        return;
+      }
+
+      analyser.getByteTimeDomainData(dataArray);
+      waveformCtx.clearRect(0, 0, waveformCanvas.width, waveformCanvas.height);
+      waveformCtx.lineWidth = 2;
+      waveformCtx.strokeStyle = '#ffff00'; // Changed to yellow
+      waveformCtx.beginPath();
+
+      const sliceWidth = waveformCanvas.width / dataArray.length;
+      let x = 0;
+
+      for (let i = 0; i < dataArray.length; i++) {
+        const v = dataArray[i] / 128.0;
+        const y = (v * waveformCanvas.height) / 2;
+
+        if (i === 0) {
+          waveformCtx.moveTo(x, y);
+        } else {
+          waveformCtx.lineTo(x, y);
+        }
+
+        x += sliceWidth;
+      }
+
+      waveformCtx.lineTo(waveformCanvas.width, waveformCanvas.height / 2);
+      waveformCtx.stroke();
+
+      animationFrameId = requestAnimationFrame(drawWaveform);
+    }
+
+    function stopRecording() {
+      if (isRecording) {
+        isRecording = false;
+        startVoiceButton.textContent = 'START VOICE';
+        startVoiceButton.classList.remove('recording');
+        if (audioContext) {
+          audioContext.close();
+          audioContext = null;
+        }
+        cancelAnimationFrame(animationFrameId);
+        waveformCtx.clearRect(0, 0, waveformCanvas.width, waveformCanvas.height);
+        console.log('Stop Voice clicked, adding blink-yellow to styleSelect');
+        styleSelect.classList.add('blink-yellow');
+      }
+    }
+
+    function updateTime() {
+      const now = new Date();
+      currentTime.textContent = now.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      }).replace(',', '');
+    }
+    updateTime();
+    setInterval(updateTime, 1000);
+
+    startVoiceButton.addEventListener('click', async () => {
+      if (!isRecording) {
+        if (!SpeechRecognition) {
+          alert('Speech Recognition API not supported. Please use Chrome or Edge.');
+          return;
+        }
+        console.log('Starting voice recording');
+        startVoiceButton.textContent = 'STOP VOICE';
+        startVoiceButton.classList.add('recording');
+        isRecording = true;
+        activityInput.value = ''; // Clear the textarea
+        await setupAudio(); // Initialize audio for waveform
+        recognition.start();
+      } else {
+        console.log('Stopping voice recording');
+        recognition.stop();
+      }
+    });
+
+    styleSelect.addEventListener('change', () => {
+      selectedStyle = styleSelect.value;
+      if (selectedStyle) {
+        if (isRecording) {
+          recognition.stop();
+        }
+        startVoiceButton.textContent = 'START VOICE';
+        startVoiceButton.classList.remove('recording');
+        isRecording = false;
+
+        console.log('Style selected:', selectedStyle, 'removing blink-yellow from styleSelect');
+        styleSelect.classList.remove('blink-yellow');
+        console.log('Adding blink-yellow to generateImageButton');
+        generateImageButton.classList.add('blink-yellow');
+      }
+    });
+
+    generateImageButton.addEventListener('click', async () => {
+      if (!activityInput.value || !selectedStyle) {
+        alert('Please provide a prompt and select a style.');
+        return;
+      }
+
+      console.log('Generate Image clicked, removing blink-yellow from generateImageButton');
+      generateImageButton.classList.remove('blink-yellow');
+      generateImageButton.classList.add('highlight-yellow');
+      thinkingDots.classList.add('highlight-yellow');
+      thinkingDots.style.display = 'block';
+
+      try {
+        // Mock the /generate-image endpoint for testing
+        // In a real application, you would need a backend server to handle this request
+        const mockResponse = {
+          image: 'https://via.placeholder.com/150?text=Generated+Image' // Placeholder image URL
+        };
+
+        // Simulate a delay to mimic server processing
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        const data = mockResponse;
+
+        if (data.image) {
+          const moodHistory = document.getElementById('moodHistory');
+          const entry = document.createElement('div');
+          entry.className = 'history-entry';
+          const img = document.createElement('img');
+          img.src = data.image;
+          img.alt = 'Generated Image';
+          const text = document.createElement('span');
+          text.textContent = ${new Date().toISOString()}: ${activityInput.value};
+          entry.appendChild(img);
+          entry.appendChild(text);
+          moodHistory.appendChild(entry);
+
+          generateImageButton.classList.remove('highlight-yellow');
+          thinkingDots.classList.remove('highlight-yellow');
+          thinkingDots.style.display = 'none';
+
+          console.log('Image generated, adding blink-yellow to saveButton');
+          saveButton.classList.add('blink-yellow');
+        } else {
+          throw new Error('No image returned');
+        }
+      } catch (error) {
+        console.error('Error generating image:', error);
+        alert('Failed to generate image: ' + error.message);
+        generateImageButton.classList.remove('highlight-yellow');
+        thinkingDots.classList.remove('highlight-yellow');
+        thinkingDots.style.display = 'none';
+      }
+    });
+
+    saveButton.addEventListener('click', () => {
+      console.log('Save clicked, voice script and thumbnail logged:', {
+        prompt: activityInput.value,
+        image: document.querySelector('#moodHistory img:last-child')?.src
+      });
+
+      console.log('Removing blink-yellow from saveButton');
+      saveButton.classList.remove('blink-yellow');
+    });
+
+    clearButton.addEventListener('click', () => {
+      activityInput.value = '';
+      selectedStyle = null;
+      styleSelect.value = '';
+      styleSelect.classList.remove('blink-yellow');
+      generateImageButton.classList.remove('blink-yellow', 'highlight-yellow');
+      saveButton.classList.remove('blink-yellow');
+      thinkingDots.classList.remove('highlight-yellow');
+      thinkingDots.style.display = 'none';
+    });
+
+    synthcalmHomeButton.addEventListener('click', () => {
+      alert('Returning to SynthCalm Home...');
+    });
+  </script>
 </body>
 </html>
