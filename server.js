@@ -8,6 +8,7 @@ const port = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
+// Optional: clean mapped style extensions
 const styleMap = {
     "photo": "in a hyper-realistic photo style",
     "anime": "in Japanese anime style",
@@ -32,12 +33,12 @@ app.post('/generate-image', async (req, res) => {
         const apiKey = process.env.STABILITY_API_KEY;
 
         if (!prompt || prompt.trim() === '') {
-            console.error('Error: Prompt is empty or missing.');
+            console.error('❌ Error: Prompt is empty or missing.');
             return res.status(400).json({ error: 'Prompt is required and cannot be empty.' });
         }
 
         if (!apiKey) {
-            console.error('Error: Stability API key not configured.');
+            console.error('❌ Error: Stability API key not configured.');
             return res.status(500).json({ error: 'Stability API key not configured. Please set the STABILITY_API_KEY environment variable.' });
         }
 
@@ -45,18 +46,13 @@ app.post('/generate-image', async (req, res) => {
         const fullPrompt = `${prompt} ${styleText}`.trim();
 
         const requestBody = {
-            text_prompts: [
-                {
-                    text: fullPrompt,
-                    weight: 1,
-                },
-            ],
+            text_prompts: [fullPrompt],  // ✅ CORRECT FORMAT
             cfg_scale: 7,
             clip_guidance_preset: 'FAST_BLUE',
             height: 1024,
             width: 1024,
             samples: 1,
-            steps: 30,
+            steps: 30
         };
 
         const response = await axios.post(
@@ -65,36 +61,35 @@ app.post('/generate-image', async (req, res) => {
             {
                 headers: {
                     'Content-Type': 'application/json',
-                    Authorization: `Bearer ${apiKey}`,
+                    Authorization: `Bearer ${apiKey}`
                 },
-                responseType: 'arraybuffer',
+                responseType: 'arraybuffer'
             }
         );
 
         const image = Buffer.from(response.data, 'binary').toString('base64');
         res.json({ image: `data:image/png;base64,${image}` });
 
-        console.log('✅ Image generated:', fullPrompt);
+        console.log('✅ Image generated for prompt:', fullPrompt);
 
     } catch (error) {
         console.error('❌ Error generating image:', error);
 
         if (axios.isAxiosError(error)) {
             if (error.response) {
-                const errorMessage = error.response.data.error || error.response.statusText;
-                console.error('Stability API error:', errorMessage);
+                const errorMessage = error.response.data?.error || error.response.statusText;
                 return res.status(error.response.status).json({ error: `Image generation failed: ${errorMessage}` });
             } else if (error.request) {
-                return res.status(500).json({ error: 'No response received from the image generation service. Please try again later.' });
+                return res.status(500).json({ error: 'No response received from Stability API. Please try again.' });
             } else {
-                return res.status(500).json({ error: `Error setting up the request: ${error.message}` });
+                return res.status(500).json({ error: `Request setup error: ${error.message}` });
             }
         } else {
-            return res.status(500).json({ error: 'An unexpected error occurred during image generation. Please try again later.' });
+            return res.status(500).json({ error: 'Unexpected server error during image generation.' });
         }
     }
 });
 
 app.listen(port, () => {
-    console.log(`✅ Server listening on port ${port}`);
+    console.log(`✅ Server running on port ${port}`);
 });
