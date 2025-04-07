@@ -1,4 +1,4 @@
-// === Mood Into Art: Web Speech API Only + Backend Integration ===
+// === Mood Into Art: Web Speech API + Backend + Auth Guard ===
 
 let isRecording = false;
 let countdown = 60;
@@ -10,6 +10,22 @@ let transcriptBuffer = "";
 const canvas = document.getElementById('waveform');
 const ctx = canvas.getContext('2d');
 let audioContext, analyser, dataArray, source;
+
+// 🔒 AUTH GUARD
+(async () => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    alert("Please log in to use this feature.");
+    [
+      'startVoice',
+      'clear',
+      'generate',
+      'saveMood',
+      'activityInput',
+      'styleSelect'
+    ].forEach(id => document.getElementById(id).disabled = true);
+  }
+})();
 
 // ⏱ Real-time Clock
 function updateDateTime() {
@@ -120,7 +136,6 @@ function setupWebSpeechAPI() {
   recognition.start();
 }
 
-// 🎙️ Start voice capture
 function startRecording() {
   navigator.mediaDevices.getUserMedia({ audio: true }).then(() => {
     isRecording = true;
@@ -142,7 +157,6 @@ function startRecording() {
   });
 }
 
-// 🛑 Stop recording
 function stopRecording() {
   isRecording = false;
   document.getElementById('startVoice').textContent = 'Start Voice';
@@ -155,14 +169,12 @@ function stopRecording() {
   stopThinkingText();
 }
 
-// ⏳ Countdown display
 function updateCountdown() {
   countdown--;
   document.getElementById('countdownDisplay').textContent = `00:${countdown.toString().padStart(2, '0')}`;
   if (countdown <= 0) stopRecording();
 }
 
-// 🧠 Generate Image
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('startVoice').addEventListener('click', () => {
     isRecording ? stopRecording() : startRecording();
@@ -179,14 +191,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const image = document.getElementById('generatedImage');
     const thinking = document.getElementById('thinking');
 
-    if (!mood) {
-      alert("Please describe your mood first.");
-      return;
-    }
-    if (!style || style === 'none') {
-      alert("Please choose an art style.");
-      return;
-    }
+    if (!mood) return alert("Please describe your mood first.");
+    if (!style || style === 'none') return alert("Please choose an art style.");
 
     startGeneratingDots();
     thinking.style.display = 'block';
