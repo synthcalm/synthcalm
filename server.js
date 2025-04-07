@@ -44,11 +44,19 @@ app.post('/generate-image', async (req, res) => {
 
   try {
     const response = await axios.post(
-      'https://api.stability.ai/v2beta/stable-image/generate/core',
+      'https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image',
       {
-        prompt: prompt,
-        style_preset: stylePreset,
-        output_format: 'png'
+        text_prompts: [
+          {
+            text: prompt,
+            weight: 1.0
+          }
+        ],
+        height: 1024,
+        width: 1024,
+        cfg_scale: 7,
+        steps: 50,
+        style_preset: stylePreset
       },
       {
         headers: {
@@ -65,7 +73,7 @@ app.post('/generate-image', async (req, res) => {
 
     console.log('✅ Image generated successfully');
   } catch (error) {
-    const errMsg = error?.response?.data?.error || error.message || 'Unknown error';
+    const errMsg = error?.response?.data?.message || error.message || 'Unknown error';
     console.error('❌ Stability API error:', errMsg);
 
     res.status(error?.response?.status || 500).json({
