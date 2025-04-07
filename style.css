@@ -35,7 +35,9 @@ canvas#waveform {
     margin: 10px 0;
 }
 
-textarea, .button, select#styleSelect {
+textarea,
+.button,
+select#styleSelect {
     width: 100%;
     background: #000;
     border: 2px solid #0ff;
@@ -167,19 +169,24 @@ select#styleSelect option {
     color: #000;
 }
 
-/* Blinking Yellow Effect */
+/* Soft Blinking Yellow Border Effect */
+@keyframes soft-blink {
+    0% { border-color: #0ff; } /* Default cyan border */
+    50% { border-color: #ffff00; } /* Yellow */
+    100% { border-color: #0ff; } /* Back to cyan */
+}
+
 .blink-yellow {
-    animation: blink 1s infinite;
+    animation: soft-blink 1.5s infinite ease-in-out;
 }
 
-.yellow {
-    background-color: yellow;
-    color: black;
+/* Solid Yellow Highlight (for Generate Image button and Generating dots) */
+.highlight-yellow {
+    border-color: #ffff00 !important; /* Solid yellow border */
+    color: #0ff; /* Keep text color cyan for buttons */
 }
 
-@keyframes blink {
-    50% {
-        background-color: transparent;
-        color: #0ff;
-    }
+/* Apply yellow color to the Generating dots when highlighted */
+#thinking.highlight-yellow {
+    color: #ffff00 !important; /* Yellow text for the dots */
 }
