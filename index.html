@@ -59,9 +59,20 @@
   <script>
     // Update date/time to user's local time zone
     function updateLocalDateTime() {
-      const now = new Date();
-      document.getElementById('dateTimeDisplay').textContent = now.toLocaleString();
-    }
+  const now = new Date();
+  const options = {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+    timeZoneName: "short"
+  };
+  document.getElementById('dateTimeDisplay').textContent = now.toLocaleString(undefined, options);
+}
+
     setInterval(updateLocalDateTime, 1000);
     updateLocalDateTime();
   </script>
