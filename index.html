@@ -61,11 +61,11 @@
     textarea#activityInput {
       max-width: 100%;
       min-height: 60px;
-      resize: vertical; /* Allow vertical resizing */
-      overflow-y: auto; /* Enable scrolling */
+      resize: vertical;
+      overflow-y: auto;
       font-size: 14px;
       text-transform: none;
-      text-align: left; /* Align text to left for readability */
+      text-align: left;
     }
 
     select#styleSelect {
@@ -97,7 +97,7 @@
 
     .button {
       cursor: pointer;
-      position: relative; /* For positioning the recording light */
+      position: relative;
     }
 
     .button.recording {
@@ -124,6 +124,7 @@
       justify-content: center;
       align-items: center;
       margin-top: 10px;
+      margin-bottom: 20px; /* Added spacing */
     }
 
     #generatedImage {
@@ -284,6 +285,7 @@
     let animationFrameId;
     let currentPrompt = '';
     let recordingTimeout;
+    let finalTranscript = ''; // Store final transcript to prevent echo
 
     // Web Speech API Setup
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -305,12 +307,11 @@
         setupAudio();
         recordingTimeout = setTimeout(() => {
           stopRecording();
-        }, 60000); // 60 seconds
+        }, 60000);
       };
 
       recognition.onresult = (event) => {
         let interimTranscript = '';
-        let finalTranscript = activityInput.value; // Start with existing text
 
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const transcript = event.results[i][0].transcript;
@@ -322,8 +323,8 @@
         }
 
         activityInput.value = finalTranscript + interimTranscript;
-        currentPrompt = activityInput.value.trim(); // Update current prompt
-        activityInput.scrollTop = activityInput.scrollHeight; // Auto-scroll to bottom
+        currentPrompt = activityInput.value.trim();
+        activityInput.scrollTop = activityInput.scrollHeight;
         console.log('Speech recognized:', activityInput.value);
       };
 
@@ -336,7 +337,6 @@
       recognition.onend = () => {
         console.log('Speech recognition ended');
         if (isRecording) {
-          // Do not restart automatically; let timeout or manual stop control it
           stopRecording();
         }
       };
@@ -406,6 +406,15 @@
       }
     }
 
+    // Reset all highlights
+    function resetHighlights() {
+      styleSelect.classList.remove('blink-yellow', 'highlight-yellow');
+      generateImageButton.classList.remove('blink-yellow', 'highlight-yellow');
+      saveButton.classList.remove('blink-yellow', 'highlight-yellow');
+      thinkingDots.classList.remove('highlight-yellow');
+      thinkingDots.style.display = 'none';
+    }
+
     // Update Time Display (YYYY-MM-DD)
     function updateTime() {
       const now = new Date();
@@ -422,6 +431,7 @@
     startVoiceButton.addEventListener('click', () => {
       if (!SpeechRecognition) return;
       if (!isRecording) {
+        finalTranscript = activityInput.value; // Preserve existing text
         recognition.start();
       } else {
         stopRecording();
@@ -472,9 +482,7 @@
           generatedImage.style.display = 'block';
           currentPrompt = activityInput.value;
 
-          generateImageButton.classList.remove('highlight-yellow');
-          thinkingDots.classList.remove('highlight-yellow');
-          thinkingDots.style.display = 'none';
+          resetHighlights(); // Reset all highlights
           saveButton.classList.add('blink-yellow');
         } else {
           throw new Error('No image returned from server');
@@ -482,9 +490,7 @@
       } catch (error) {
         console.error('Error generating image:', error);
         alert('Failed to generate image: ' + error.message);
-        generateImageButton.classList.remove('highlight-yellow');
-        thinkingDots.classList.remove('highlight-yellow');
-        thinkingDots.style.display = 'none';
+        resetHighlights();
       }
     });
 
@@ -511,25 +517,23 @@
       moodHistory.appendChild(entry);
 
       console.log('Saved to Mood History:', { prompt: currentPrompt, image: generatedImage.src });
-      saveButton.classList.remove('blink-yellow');
+      resetHighlights(); // Reset all highlights
       generatedImage.style.display = 'none';
     });
 
     clearButton.addEventListener('click', () => {
       activityInput.value = '';
+      finalTranscript = '';
       currentPrompt = '';
       selectedStyle = null;
       styleSelect.value = '';
-      styleSelect.classList.remove('blink-yellow');
-      generateImageButton.classList.remove('blink-yellow', 'highlight-yellow');
-      saveButton.classList.remove('blink-yellow');
-      thinkingDots.classList.remove('highlight-yellow');
-      thinkingDots.style.display = 'none';
+      resetHighlights();
       generatedImage.style.display = 'none';
     });
 
     synthcalmHomeButton.addEventListener('click', () => {
       alert('Returning to SynthCalm Home...');
+      resetHighlights();
     });
   </script>
 </body>
