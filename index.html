@@ -65,6 +65,23 @@
     setInterval(updateLocalDateTime, 1000);
     updateLocalDateTime();
   </script>
+  <script>
+    document.getElementById('generate').addEventListener('click', () => {
+      const moodText = document.getElementById('activityInput').value;
+      const timestamp = new Date().toLocaleString();
+      const imgSrc = document.getElementById('generatedImage').src;
+
+      const entry = document.createElement('div');
+      entry.className = 'history-entry';
+      entry.innerHTML = `
+        <img src="${imgSrc}" style="width:40px;height:40px;object-fit:cover;border:1px solid #0ff;" />
+        <span>${timestamp}: ${moodText}</span>
+        <button onclick="this.parentElement.remove()">Delete</button>
+      `;
+
+      document.getElementById('moodHistory').prepend(entry);
+    });
+  </script>
   <script src="/synthcalm/script.js"></script>
 </body>
 </html>
