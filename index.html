@@ -10,6 +10,28 @@
             border-color: magenta;
             color: magenta;
         }
+
+        #clear.active {
+            border-color: yellow;
+        }
+
+        #styleSelect.active {
+            border-color: yellow;
+        }
+
+        #generate.active {
+            background-color: yellow;
+            color: black;
+        }
+
+        #saveMood.active {
+            border-color: magenta;
+        }
+
+        #synthCalmHome.active{
+            border-color: magenta;
+        }
+
     </style>
 </head>
 <body>
@@ -24,7 +46,6 @@
     </div>
 
     <textarea id="activityInput" rows="4" placeholder="Describe your mood... (editable after recording)"></textarea>
-    <input type="file" id="imageInput" accept="image/*">
 
     <div class="button-group">
         <button class="button" id="startVoice">Start Voice</button>
@@ -49,7 +70,7 @@
         </select>
         <button class="button" id="generate">Generate Image</button>
         <button class="button" id="saveMood">Save</button>
-        <button class="button" onclick="window.location.href='https://synthcalm.com'">Return to SynthCalm</button>
+        <button class="button" id="synthCalmHome" onclick="window.location.href='https://synthcalm.com'">SynthCalm Home</button>
     </div>
 
     <hr style="border: none; border-top: 1px solid #0ff; margin: 20px 0;" />
@@ -99,6 +120,28 @@
         analyser.getByteTimeDomainData(dataArray);
         ctx.fillStyle = "black";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw Grid Lines (Yellow)
+        ctx.strokeStyle = "#ffff00";
+        ctx.lineWidth = 0.5; // Thinner grid lines
+
+        // Vertical Grid Lines
+        for (let i = canvas.width / 10; i < canvas.width; i += canvas.width / 10) {
+            ctx.beginPath();
+            ctx.moveTo(i, 0);
+            ctx.lineTo(i, canvas.height);
+            ctx.stroke();
+        }
+
+        // Horizontal Grid Lines
+        for (let i = canvas.height / 4; i < canvas.height; i += canvas.height / 4) {
+            ctx.beginPath();
+            ctx.moveTo(0, i);
+            ctx.lineTo(canvas.width, i);
+            ctx.stroke();
+        }
+
+        // Draw Waveform (Yellow)
         ctx.strokeStyle = "#ffff00";
         ctx.lineWidth = 2;
         ctx.beginPath();
@@ -207,30 +250,24 @@
         const style = document.getElementById("styleSelect").value;
         const thinking = document.getElementById("thinking");
         const imageEl = document.getElementById("generatedImage");
-        const imageFile = document.getElementById('imageInput').files[0];
+        document.getElementById("generate").classList.add("active");
 
         if (!mood || style === "none") {
             alert("Please enter your mood and select a style.");
-            return;
-        }
-
-        if(!imageFile){
-            alert("Please select an image to use.");
+            document.getElementById("generate").classList.remove("active");
             return;
         }
 
         thinking.style.display = "block";
 
         try {
-
-          const formData = new FormData();
-          formData.append('image', imageFile);
-          formData.append('prompt', `${mood}, ${style}`);
-
-          const response = await fetch("http://your-server-address:3001/generate-image", { //replace with server address
-            method: "POST",
-            body: formData,
-          });
+            const response = await fetch("http://your-server-address:3001/generate-image", { //replace with server address
+                method: "POST",
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ prompt: `${mood}, ${style}` })
+            });
 
             const data = await response.json();
 
@@ -245,6 +282,7 @@
             alert("Failed to generate image.");
         } finally {
             thinking.style.display = "none";
+            document.getElementById("generate").classList.remove("active");
         }
     });
 
@@ -281,7 +319,33 @@
         const img = document.getElementById("generatedImage");
         img.src = "";
         img.style.display = "none";
+        document.getElementById("clear").classList.add("active");
+        setTimeout(()=>{
+            document.getElementById("clear").classList.remove("active");
+        }, 500);
     });
+
+    document.getElementById("styleSelect").addEventListener("click", () => {
+      document.getElementById("styleSelect").classList.add("active");
+    });
+    document.getElementById("styleSelect").addEventListener("change", () => {
+      document.getElementById("styleSelect").classList.remove("active");
+    });
+
+    document.getElementById("saveMood").addEventListener("click",()=>{
+        document.getElementById("saveMood").classList.add("active");
+        setTimeout(()=>{
+            document.getElementById("saveMood").classList.remove("active");
+        },500)
+    });
+
+    document.getElementById("synthCalmHome").addEventListener("click",()=>{
+        document.getElementById("synthCalmHome").classList.add("active");
+        setTimeout(()=>{
+            document.getElementById("synthCalmHome").classList.remove("active");
+        },500)
+    })
+
 </script>
 </body>
 </html>
