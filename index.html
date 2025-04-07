@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Mood Into Art</title>
   <link rel="stylesheet" href="/synthcalm/style.css"/>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 </head>
 <body>
+  <!-- force re-deploy -->
   <div class="container">
     <p>1. Press the "Start Voice" button and say what you feel. You have 60 Seconds. 2. Choose an art style. 3. Generate Image.</p>
 
@@ -51,56 +51,20 @@
       <img id="generatedImage" />
     </div>
 
-    <div id="moodHistory"></div>
+    <div id="moodHistory">
+      <!-- Mood log entries with thumbnail will appear here -->
+    </div>
   </div>
 
   <script>
-    const supabase = supabase.createClient(
-      'https://ysuaedvcfplzzfcmmkgb.supabase.co',
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzdWFlZHZjZnBsenpmY21ta2diIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI5NTk5MDEsImV4cCI6MjA1ODUzNTkwMX0.yNG-z5iMK2pDmxzTUoArJOivbGXTfSve2HyHH7YWgzc'
-    );
-
-    document.getElementById("generate").addEventListener("click", async () => {
-      const moodText = document.getElementById("activityInput").value;
-
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) {
-        alert("You must be signed in to save your mood.");
-        return;
-      }
-
-      const { data, error } = await supabase.from("mia_logs").insert([
-        {
-          user_id: user.id,
-          mood_text: moodText
-        }
-      ]).select();
-
-      if (error) {
-        console.error("Insert error:", error.message);
-        alert("Failed to save mood.");
-      } else {
-        const entry = data[0];
-        const entryEl = document.createElement("div");
-        entryEl.className = "history-entry";
-        entryEl.innerHTML = `
-          <span>${new Date(entry.created_at).toLocaleString()} — ${entry.mood_text}</span>
-          <button onclick="deleteMood(${entry.id}, this)">Delete</button>
-        `;
-        document.getElementById("moodHistory").appendChild(entryEl);
-      }
-    });
-
-    async function deleteMood(id, buttonEl) {
-      const { error } = await supabase.from("mia_logs").delete().eq("id", id);
-      if (error) {
-        alert("Delete failed.");
-      } else {
-        buttonEl.parentElement.remove();
-      }
+    // Update date/time to user's local time zone
+    function updateLocalDateTime() {
+      const now = new Date();
+      document.getElementById('dateTimeDisplay').textContent = now.toLocaleString();
     }
+    setInterval(updateLocalDateTime, 1000);
+    updateLocalDateTime();
   </script>
-
   <script src="/synthcalm/script.js"></script>
 </body>
 </html>
