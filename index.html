@@ -207,19 +207,17 @@
         const style = document.getElementById("styleSelect").value;
         const thinking = document.getElementById("thinking");
         const imageEl = document.getElementById("generatedImage");
-        const imageInput = document.getElementById('imageInput');
+        const imageFile = document.getElementById('imageInput').files[0];
 
         if (!mood || style === "none") {
             alert("Please enter your mood and select a style.");
             return;
         }
 
-        if(!imageInput.files[0]){
+        if(!imageFile){
             alert("Please select an image to use.");
             return;
         }
-
-        const imageFile = imageInput.files[0];
 
         thinking.style.display = "block";
 
