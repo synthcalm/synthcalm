@@ -52,35 +52,25 @@
     </div>
 
     <div id="moodHistory">
-      <!-- Mood log entries with thumbnail will appear here -->
+      <p style="color:#0ff;font-size:14px;text-align:center;">Mood History</p>
     </div>
   </div>
 
   <script>
     // Update date/time to user's local time zone
     function updateLocalDateTime() {
-  const now = new Date();
-  const options = {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-    timeZoneName: "short"
-  };
-  document.getElementById('dateTimeDisplay').textContent = now.toLocaleString(undefined, options);
-}
-
+      const now = new Date();
+      document.getElementById('dateTimeDisplay').textContent = now.toLocaleString();
+    }
     setInterval(updateLocalDateTime, 1000);
     updateLocalDateTime();
   </script>
+
   <script>
     document.getElementById('generate').addEventListener('click', () => {
       const moodText = document.getElementById('activityInput').value;
       const timestamp = new Date().toLocaleString();
-      const imgSrc = document.getElementById('generatedImage').src;
+      const imgSrc = document.getElementById('generatedImage').src || 'https://via.placeholder.com/40x40/000000/0ff?text=🖼️';
 
       const entry = document.createElement('div');
       entry.className = 'history-entry';
@@ -93,6 +83,7 @@
       document.getElementById('moodHistory').prepend(entry);
     });
   </script>
+
   <script src="/synthcalm/script.js"></script>
 </body>
 </html>
