@@ -65,28 +65,29 @@
     setInterval(updateDateTime, 1000);
     updateDateTime();
 
-    // Speech recognition
+    // Start Voice Recording
     let recognition;
     document.getElementById("startVoice").addEventListener("click", () => {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) return alert("SpeechRecognition not supported");
 
-      if (!recognition) {
-        recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = 'en-US';
-        recognition.onresult = (event) => {
-          const transcript = Array.from(event.results).map(r => r[0].transcript).join('');
-          document.getElementById("activityInput").value = transcript;
-        };
-        recognition.onerror = (event) => console.error("Speech error", event);
-        recognition.onend = () => recognition.start();
-      }
+      recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onresult = (event) => {
+        const transcript = Array.from(event.results).map(r => r[0].transcript).join('');
+        document.getElementById("activityInput").value = transcript;
+      };
+
+      recognition.onerror = (event) => console.error("Speech error", event);
+      recognition.onend = () => console.log("Voice recognition ended");
 
       recognition.start();
     });
 
+    // Generate Image Sim
     document.getElementById("generate").addEventListener("click", () => {
       const mood = document.getElementById("activityInput").value;
       const style = document.getElementById("styleSelect").value;
@@ -104,6 +105,7 @@
       }, 2000);
     });
 
+    // Save Mood Log
     document.getElementById("saveMood").addEventListener("click", () => {
       const moodText = document.getElementById("activityInput").value;
       const timestamp = new Date().toLocaleString();
