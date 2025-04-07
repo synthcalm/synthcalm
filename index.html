@@ -1,6 +1,61 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- Load Supabase JS SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Initialize Supabase -->
+  <script>
+    const SUPABASE_URL = 'https://ysuaedvcfplzzfcmmkgb.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzdWFlZHZjZnBsenpmY21ta2diIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI5NTk5MDEsImV4cCI6MjA1ODUzNTkwMX0.yNG-z5iMK2pDmxzTUoArJOivbGXTfSve2HyHH7YWgzc';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  </script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const loginButton = document.getElementById('login');
+      const logoutButton = document.getElementById('logout');
+
+      // Check auth state
+      const { data: { session } } = await supabase.auth.getSession();
+      toggleAuthButtons(session);
+
+      // Handle login
+      loginButton.addEventListener('click', async () => {
+        const email = prompt("Enter your email:");
+        if (!email) return;
+        const { error } = await supabase.auth.signInWithOtp({ email });
+        if (error) {
+          alert('Login failed. Check the email and try again.');
+          console.error(error);
+        } else {
+          alert('Check your email for the login link!');
+        }
+      });
+
+      // Handle logout
+      logoutButton.addEventListener('click', async () => {
+        await supabase.auth.signOut();
+        toggleAuthButtons(null);
+      });
+
+      // Recheck auth on change
+      supabase.auth.onAuthStateChange((_event, session) => {
+        toggleAuthButtons(session);
+      });
+
+      function toggleAuthButtons(session) {
+        if (session && session.user) {
+          loginButton.style.display = 'none';
+          logoutButton.style.display = 'inline-block';
+        } else {
+          loginButton.style.display = 'inline-block';
+          logoutButton.style.display = 'none';
+        }
+      }
+    });
+  </script>
+
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SynthCalm</title>
@@ -263,6 +318,92 @@
       <h3>MOOD HISTORY</h3>
     </div>
   </div>
+  <script>
+    document.getElementById('saveMood').addEventListener('click', async () => {
+      const mood = document.getElementById('activityInput').value;
+      const imageUrl = document.getElementById('generatedImage')?.src || null;
+      const user = await supabase.auth.getUser();
+      const user_id = user?.data?.user?.id;
+  
+      if (!mood || !imageUrl || !user_id) {
+        alert('Please log in, generate an image, and describe your mood first.');
+        return;
+      }
+  
+      const { error } = await supabase
+        .from('mia_logs')
+        .insert([
+          {
+            user_id,
+            mood_text: mood,
+            image_url: imageUrl,
+          },
+        ]);
+  
+      if (error) {
+        alert('Failed to save mood log.');
+        console.error(error);
+      } else {
+        alert('Mood saved!');
+      }
+    });
+  </script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const moodHistory = document.getElementById('moodHistory');
+      moodHistory.innerHTML = ''; // Clear old content
+  
+      const { data: userData } = await supabase.auth.getUser();
+      const user_id = userData?.user?.id;
+  
+      if (!user_id) {
+        moodHistory.innerHTML = '<p style="color: #f55;">Please log in to see your mood history.</p>';
+        return;
+      }
+  
+      const { data, error } = await supabase
+        .from('mia_logs')
+        .select('created_at, mood_text, image_url')
+        .eq('user_id', user_id)
+        .order('created_at', { ascending: false });
+  
+      if (error) {
+        console.error(error);
+        moodHistory.innerHTML = '<p style="color: #f55;">Failed to fetch</p>';
+        return;
+      }
+  
+      if (!data || data.length === 0) {
+        moodHistory.innerHTML = '<p>No mood history yet.</p>';
+        return;
+      }
+  
+      data.forEach(entry => {
+        const wrapper = document.createElement('div');
+        wrapper.style.display = 'flex';
+        wrapper.style.alignItems = 'center';
+        wrapper.style.marginBottom = '12px';
+  
+        const thumb = document.createElement('img');
+        thumb.src = entry.image_url;
+        thumb.alt = 'Mood Image';
+        thumb.style.width = '40px';
+        thumb.style.height = '40px';
+        thumb.style.objectFit = 'cover';
+        thumb.style.border = '1px solid #0ff';
+        thumb.style.marginRight = '8px';
+  
+        const text = document.createElement('span');
+        text.style.color = '#0ff';
+        text.style.flexGrow = '1';
+        text.textContent = `${new Date(entry.created_at).toLocaleString()}: ${entry.mood_text}`;
+  
+        wrapper.appendChild(thumb);
+        wrapper.appendChild(text);
+        moodHistory.appendChild(wrapper);
+      });
+    });
+  </script>
 
   <script>
     const startVoiceButton = document.getElementById('startVoice');
