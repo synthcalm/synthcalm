@@ -5,7 +5,19 @@ const axios = require('axios');
 const app = express();
 const port = process.env.PORT || 3001;
 
-app.use(cors());
+// ✅ Allow only requests from your frontend domain
+const allowedOrigins = ['https://synthcalm.github.io'];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  }
+}));
+
 app.use(express.json());
 
 const styleMap = {
@@ -25,6 +37,7 @@ const styleMap = {
   "digital-painting": "digital-art",
   "minimalism": "minimalist"
 };
+
 
 app.post('/generate-image', async (req, res) => {
   const { prompt, style } = req.body;
