@@ -1,32 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Load Supabase JS SDK -->
+  <!-- Load Supabase JS SDK v2 -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <!-- Initialize Supabase -->
   <script>
     const SUPABASE_URL = 'https://ysuaedvcfplzzfcmmkgb.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...';
-    
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzdWFlZHZjZnBsenpmY21ta2diIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI5NTk5MDEsImV4cCI6MjA1ODUzNTkwMX0.yNG-z5iMK2pDmxzTUoArJOivbGXTfSve2HyHH7YWgzc';
+
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    
-    // Check URL for tokens
+
+    // Check for access/refresh tokens in URL
     const params = new URLSearchParams(window.location.search);
     const access_token = params.get('access_token');
     const refresh_token = params.get('refresh_token');
-    
+
     if (access_token && refresh_token) {
-      supabase.auth.setSession({
-        access_token,
-        refresh_token
-      }).then(() => {
-        // Optional: remove tokens from URL
+      supabase.auth.setSession({ access_token, refresh_token }).then(() => {
         window.history.replaceState({}, document.title, "/synthcalm/");
       });
     }
 
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzdWFlZHZjZnBsenpmY21ta2diIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI5NTk5MDEsImV4cCI6MjA1ODUzNTkwMX0.yNG-z5iMK2pDmxzTUoArJOivbGXTfSve2HyHH7YWgzc';
+    // Make globally accessible
+    window.supabase = supabase;
   </script>
 
   <script>
