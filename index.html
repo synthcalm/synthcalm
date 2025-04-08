@@ -8,26 +8,37 @@
   <script>
     const SUPABASE_URL = 'https://ysuaedvcfplzzfcmmkgb.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...';
-
+    
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
+    
+    // Check URL for tokens
     const params = new URLSearchParams(window.location.search);
     const access_token = params.get('access_token');
     const refresh_token = params.get('refresh_token');
-
+    
     if (access_token && refresh_token) {
-      supabase.auth.setSession({ access_token, refresh_token })
-        .then(() => window.history.replaceState({}, document.title, "/synthcalm/"));
+      supabase.auth.setSession({
+        access_token,
+        refresh_token
+      }).then(() => {
+        // Optional: remove tokens from URL
+        window.history.replaceState({}, document.title, "/synthcalm/");
+      });
     }
+
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzdWFlZHZjZnBsenpmY21ta2diIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI5NTk5MDEsImV4cCI6MjA1ODUzNTkwMX0.yNG-z5iMK2pDmxzTUoArJOivbGXTfSve2HyHH7YWgzc';
   </script>
 
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
       const loginButton = document.getElementById('login');
       const logoutButton = document.getElementById('logout');
+
+      // Check auth state
       const { data: { session } } = await supabase.auth.getSession();
       toggleAuthButtons(session);
 
+      // Handle login
       loginButton.addEventListener('click', async () => {
         const email = prompt("Enter your email:");
         if (!email) return;
@@ -40,12 +51,16 @@
         }
       });
 
+      // Handle logout
       logoutButton.addEventListener('click', async () => {
         await supabase.auth.signOut();
         toggleAuthButtons(null);
       });
 
-      supabase.auth.onAuthStateChange((_event, session) => toggleAuthButtons(session));
+      // Recheck auth on change
+      supabase.auth.onAuthStateChange((_event, session) => {
+        toggleAuthButtons(session);
+      });
 
       function toggleAuthButtons(session) {
         document.getElementById('login').style.display = session ? 'none' : 'inline-block';
@@ -53,49 +68,710 @@
       }
     });
   </script>
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SynthCalm</title>
+  <style>
+    body {
+      font-family: 'Courier New', monospace;
+      margin: 0;
+      background: #000;
+      color: #0ff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      flex-direction: column;
+    }
+
+    .container {
+      width: 100%; /* Full width for responsiveness */
+      max-width: 400px; /* Optimized for smartphones */
+      padding: 20px;
+      border: 2px solid #0ff;
+      border-radius: 12px;
+      box-sizing: border-box; /* Prevent padding from increasing width */
+    }
+
+    canvas#waveform {
+      width: 100%;
+      height: 160px;
+      background-color: #000;
+      border: 1px solid #0ff;
+      background-image: linear-gradient(to right, rgba(255, 255, 0, 0.3) 1px, transparent 1px),
+                        linear-gradient(to bottom, rgba(255, 255, 0, 0.3) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+
+    .footer-bar {
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      margin: 10px 0;
+    }
+
+    textarea,
+    .button,
+    select#styleSelect {
+      width: 100%;
+      background: #000;
+      border: 2px solid #0ff;
+      color: #0ff;
+      padding: 10px;
+      margin-bottom: 10px;
+      text-align: center;
+      box-sizing: border-box;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      text-transform: uppercase;
+    }
+
+    textarea#activityInput {
+      max-width: 100%;
+      min-height: 60px;
+      resize: vertical;
+      overflow-y: auto;
+      font-size: 14px;
+      text-transform: none;
+      text-align: left;
+    }
+
+    select#styleSelect {
+      text-align: center;
+      text-align-last: center;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      background-position: right 10px center;
+      padding-right: 30px;
+      cursor: pointer;
+    }
+
+    select#styleSelect option {
+      background: #000;
+      color: #0ff;
+    }
+
+    select#styleSelect:hover {
+      background: #0ff;
+      color: #000;
+    }
+
+    .button-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .button {
+      cursor: pointer;
+      position: relative;
+    }
+
+    .button.recording {
+      background: #000 !important;
+      border-color: #ff00ff !important;
+      color: #0ff !important;
+    }
+
+    .button:hover {
+      background: #0ff;
+      color: #000;
+    }
+
+    .seven-segment {
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+    }
+
+    .image-frame {
+      width: 100%;
+      max-height: 400px;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-top: 10px;
+      margin-bottom: 20px;
+    }
+
+    #generatedImage {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      display: none;
+      border: 2px solid #0ff;
+    }
+
+    #thinking {
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      color: #ff0;
+      text-align: center;
+      margin-top: 5px;
+      margin-bottom: 10px;
+      height: 20px;
+      display: none;
+    }
+
+    #moodHistory {
+      margin-top: 10px;
+      font-size: 13px;
+      color: #0ff;
+      text-align: center;
+    }
+
+    .history-entry {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 6px;
+      gap: 8px;
+    }
+
+    .history-entry img {
+      max-width: 100px;
+      max-height: 100px;
+      object-fit: contain;
+    }
+
+    .recording-light {
+      width: 10px;
+      height: 10px;
+      background-color: red;
+      border-radius: 50%;
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      display: none;
+      z-index: 10;
+    }
+
+    @keyframes blink {
+      0% { opacity: 1; }
+      50% { opacity: 0; }
+      100% { opacity: 1; }
+    }
+
+    .recording-light.active {
+      display: block;
+      animation: blink 1s infinite;
+    }
+
+    .divider {
+      border-top: 1px solid #0ff;
+      margin: 10px 0;
+    }
+
+    @keyframes soft-blink {
+      0% { border-color: #0ff; }
+      50% { border-color: #ffff00; }
+      100% { border-color: #0ff; }
+    }
+
+    .blink-yellow {
+      animation: soft-blink 1.5s infinite ease-in-out !important;
+    }
+
+    .highlight-yellow {
+      border-color: #ffff00 !important;
+      color: #0ff;
+    }
+
+    #thinking.highlight-yellow {
+      color: #ffff00 !important;
+    }
+  </style>
 </head>
 <body>
-  <!-- BODY CONTENT HERE: left intact -->
-  <div class="divider"></div>
-  <div id="moodHistory">
-    <h3>MOOD HISTORY</h3>
+  <div class="container">
+    <canvas id="waveform"></canvas>
+    <div class="footer-bar">
+      <span class="seven-segment" id="currentTime"></span>
+      <span class="seven-segment" id="countdownTimer">00:60</span>
+    </div>
+    <textarea id="activityInput"></textarea>
+    <button id="promptButton" class="button">PROMPT</button>
+    <div class="button-group">
+      <button id="startVoice" class="button">START VOICE<span id="recordingLight" class="recording-light"></span></button>
+      <button id="clear" class="button">CLEAR</button>
+    </div>
+    <div class="button-group">
+      <select id="styleSelect">
+        <option value="">CHOOSE STYLE</option>
+        <option value="photo">PHOTO</option>
+        <option value="anime">ANIME</option>
+        <option value="abstract">ABSTRACT</option>
+        <option value="surrealism">SURREALISM</option>
+        <option value="post-modern">POST-MODERN</option>
+        <option value="cyberpunk">CYBERPUNK</option>
+        <option value="arabic-calligraphy">ARABIC CALLIGRAPHY</option>
+        <option value="chinese-calligraphy">CHINESE CALLIGRAPHY</option>
+        <option value="japanese-calligraphy">JAPANESE CALLIGRAPHY</option>
+        <option value="marvel">MARVEL</option>
+        <option value="art-deco">ART DECO</option>
+        <option value="impressionist">IMPRESSIONIST</option>
+        <option value="pop-art">POP ART</option>
+        <option value="digital-painting">DIGITAL PAINTING</option>
+        <option value="minimalism">MINIMALISM</option>
+      </select>
+      <button id="generateImage" class="button">GENERATE IMAGE</button>
+    </div>
+    <div class="image-frame">
+      <img id="generatedImage" alt="Generated Image">
+    </div>
+    <div class="button-group">
+      <button id="save" class="button">SAVE</button>
+      <button id="synthcalmHome" class="button">SYNTHCALM HOME</button>
+    </div>
+    <div id="thinking">GENERATING...</div>
+    <div class="divider"></div>
+    <div id="moodHistory">
+      <h3>MOOD HISTORY</h3>
+    </div>
   </div>
+  <script>
+    document.getElementById('save').addEventListener('click', async () => {
+      const mood = document.getElementById('activityInput').value;
+      const imageUrl = document.getElementById('generatedImage')?.src || null;
+      const user = await supabase.auth.getUser();
+      const user_id = user?.data?.user?.id;
+  
+      if (!mood || !imageUrl || !user_id) {
+        alert('Please log in, generate an image, and describe your mood first.');
+        return;
+      }
+  
+      const { error } = await supabase
+        .from('mia_logs')
+        .insert([
+          {
+            user_id,
+            mood_text: mood,
+            image_url: imageUrl,
+          },
+        ]);
+  
+      if (error) {
+        alert('Failed to save mood log.');
+        console.error(error);
+      } else {
+        alert('Mood saved!');
+      }
+    });
+  </script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const moodHistory = document.getElementById('moodHistory');
+      moodHistory.innerHTML = ''; // Clear old content
+  
+      const { data: userData } = await supabase.auth.getUser();
+      const user_id = userData?.user?.id;
+  
+      if (!user_id) {
+        moodHistory.innerHTML = '<p style="color: #f55;">Please log in to see your mood history.</p>';
+        return;
+      }
+  
+      const { data, error } = await supabase
+        .from('mia_logs')
+        .select('created_at, mood_text, image_url')
+        .eq('user_id', user_id)
+        .order('created_at', { ascending: false });
+  
+      if (error) {
+        console.error(error);
+        moodHistory.innerHTML = '<p style="color: #f55;">Failed to fetch</p>';
+        return;
+      }
+  
+      if (!data || data.length === 0) {
+        moodHistory.innerHTML = '<p>No mood history yet.</p>';
+        return;
+      }
+  
+      data.forEach(entry => {
+        const wrapper = document.createElement('div');
+        wrapper.style.display = 'flex';
+        wrapper.style.alignItems = 'center';
+        wrapper.style.marginBottom = '12px';
+  
+        const thumb = document.createElement('img');
+        thumb.src = entry.image_url;
+        thumb.alt = 'Mood Image';
+        thumb.style.width = '40px';
+        thumb.style.height = '40px';
+        thumb.style.objectFit = 'cover';
+        thumb.style.border = '1px solid #0ff';
+        thumb.style.marginRight = '8px';
+  
+        const text = document.createElement('span');
+        text.style.color = '#0ff';
+        text.style.flexGrow = '1';
+        text.textContent = `${new Date(entry.created_at).toLocaleString()}: ${entry.mood_text}`;
+  
+        wrapper.appendChild(thumb);
+        wrapper.appendChild(text);
+        moodHistory.appendChild(wrapper);
+      });
+    });
+  </script>
 
   <script>
-    async function isUserLoggedIn() {
-      const { data } = await supabase.auth.getUser();
-      return !!data.user;
+    const startVoiceButton = document.getElementById('startVoice');
+    const styleSelect = document.getElementById('styleSelect');
+    const generateImageButton = document.getElementById('generateImage');
+    const saveButton = document.getElementById('save');
+    const clearButton = document.getElementById('clear');
+    const synthcalmHomeButton = document.getElementById('synthcalmHome');
+    const promptButton = document.getElementById('promptButton');
+    const thinkingDots = document.getElementById('thinking');
+    const activityInput = document.getElementById('activityInput');
+    const generatedImage = document.getElementById('generatedImage');
+    const currentTime = document.getElementById('currentTime');
+    const countdownTimer = document.getElementById('countdownTimer');
+    const waveformCanvas = document.getElementById('waveform');
+    const waveformCtx = waveformCanvas.getContext('2d');
+    const recordingLight = document.getElementById('recordingLight');
+
+    let isRecording = false;
+    let selectedStyle = null;
+    let recognition;
+    let audioContext;
+    let analyser;
+    let dataArray;
+    let animationFrameId;
+    let currentPrompt = '';
+    let recordingTimeout;
+    let countdownInterval;
+    let finalTranscript = '';
+    let timeLeft = 60;
+
+    // List of 50 therapeutically-oriented prompts
+    const therapeuticPrompts = [
+      "What small goal can you achieve today?",
+      "Describe a place where you feel completely at peace.",
+      "What made you smile recently?",
+      "Imagine a safe space—what does it look like?",
+      "What are you grateful for right now?",
+      "How can you show yourself kindness today?",
+      "Describe a moment when you felt really proud of yourself.",
+      "What’s a challenge you’ve overcome recently?",
+      "Imagine a calming scene—what do you see, hear, and feel?",
+      "What’s one thing you love about yourself?",
+      "Describe a happy memory from your childhood.",
+      "What’s a dream you’d love to make come true?",
+      "How do you feel when you’re surrounded by nature?",
+      "What’s a song that always lifts your spirits?",
+      "Imagine a perfect day—what happens?",
+      "What’s something you’re looking forward to?",
+      "Describe a person who makes you feel supported.",
+      "What’s a hobby that brings you joy?",
+      "How do you feel when you’re by the ocean?",
+      "What’s a small act of kindness you can do today?",
+      "Describe a time when you felt really understood.",
+      "What’s a color that makes you feel calm?",
+      "Imagine a cozy space—what’s in it?",
+      "What’s a goal you’d like to set for this week?",
+      "Describe a moment when you felt truly relaxed.",
+      "What’s a book or movie that inspires you?",
+      "How do you feel when you’re stargazing?",
+      "What’s a scent that brings back happy memories?",
+      "Describe a time when you helped someone.",
+      "What’s a place you’d love to visit someday?",
+      "How do you feel when you’re creating something?",
+      "What’s a lesson you’ve learned recently?",
+      "Describe a moment when you felt strong.",
+      "What’s a food that makes you feel comforted?",
+      "Imagine a peaceful garden—what’s growing there?",
+      "What’s a quote that motivates you?",
+      "How do you feel when you’re with your favorite person?",
+      "What’s a memory that makes you laugh?",
+      "Describe a time when you felt really connected to someone.",
+      "What’s a sound that soothes you?",
+      "Imagine a warm, sunny day—what are you doing?",
+      "What’s a skill you’d love to learn?",
+      "Describe a time when you felt at ease.",
+      "What’s a place that feels like home to you?",
+      "How do you feel when you’re dancing?",
+      "What’s a tradition that brings you joy?",
+      "Describe a moment when you felt hopeful.",
+      "What’s a texture that feels comforting to you?",
+      "Imagine a magical forest—what do you discover?",
+      "What’s a word that describes how you want to feel today?",
+      "Describe a time when you felt truly seen."
+    ];
+
+    // Web Speech API Setup
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      console.error('Speech Recognition API not supported.');
+      alert('Speech Recognition is not supported in this browser. Please use Chrome or Edge.');
+    } else {
+      recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        console.log('Speech recognition started');
+        isRecording = true;
+        activityInput.value = ''; // Clear prompt when recording starts
+        startVoiceButton.textContent = 'STOP VOICE';
+        startVoiceButton.classList.add('recording');
+        recordingLight.classList.add('active');
+        setupAudio();
+        timeLeft = 60;
+        countdownTimer.textContent = `00:${String(timeLeft).padStart(2, '0')}`;
+        countdownInterval = setInterval(() => {
+          timeLeft--;
+          countdownTimer.textContent = `00:${String(timeLeft).padStart(2, '0')}`;
+          if (timeLeft <= 0) {
+            stopRecording();
+          }
+        }, 1000);
+        recordingTimeout = setTimeout(() => {
+          stopRecording();
+        }, 60000);
+      };
+
+      recognition.onresult = (event) => {
+        let interimTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript + ' ';
+          } else {
+            interimTranscript = transcript;
+          }
+        }
+
+        activityInput.value = finalTranscript + interimTranscript;
+        currentPrompt = activityInput.value.trim();
+        activityInput.scrollTop = activityInput.scrollHeight;
+        console.log('Speech recognized:', activityInput.value);
+      };
+
+      recognition.onerror = (event) => {
+        console.error('Speech recognition error:', event.error);
+        alert(`Speech recognition error: ${event.error}. Please check microphone permissions.`);
+        stopRecording();
+      };
+
+      recognition.onend = () => {
+        console.log('Speech recognition ended');
+        if (isRecording) {
+          stopRecording();
+        }
+      };
     }
 
-    function canGenerateImageLocally() {
-      const usageKey = 'mia_image_usage';
-      const now = Date.now();
-      const oneWeek = 7 * 24 * 60 * 60 * 1000;
-      let usage = JSON.parse(localStorage.getItem(usageKey));
-
-      if (!usage || now - usage.resetTime > oneWeek) {
-        usage = { count: 0, resetTime: now };
-        localStorage.setItem(usageKey, JSON.stringify(usage));
+    // Web Audio API for Waveform Visualization
+    async function setupAudio() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioContext.createMediaStreamSource(stream);
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 2048;
+        source.connect(analyser);
+        dataArray = new Uint8Array(analyser.frequencyBinCount);
+        drawWaveform();
+      } catch (err) {
+        console.error('Error accessing microphone:', err);
+        alert('Error accessing microphone: ' + err.message);
       }
-
-      if (usage.count >= 3) {
-        return false;
-      }
-
-      usage.count++;
-      localStorage.setItem(usageKey, JSON.stringify(usage));
-      return true;
     }
 
-    generateImageButton.addEventListener('click', async () => {
-      const userLoggedIn = await isUserLoggedIn();
-
-      if (!userLoggedIn && !canGenerateImageLocally()) {
-        alert('Limit reached: Please sign in to generate more than 3 images per week.');
+    function drawWaveform() {
+      if (!isRecording) {
+        cancelAnimationFrame(animationFrameId);
+        waveformCtx.clearRect(0, 0, waveformCanvas.width, waveformCanvas.height);
         return;
       }
 
-      // Continue with image generation logic
+      analyser.getByteTimeDomainData(dataArray);
+      waveformCtx.clearRect(0, 0, waveformCanvas.width, waveformCanvas.height);
+      waveformCtx.lineWidth = 2;
+      waveformCtx.strokeStyle = '#ffff00';
+      waveformCtx.beginPath();
+
+      const sliceWidth = waveformCanvas.width / dataArray.length;
+      let x = 0;
+
+      for (let i = 0; i < dataArray.length; i++) {
+        const v = dataArray[i] / 128.0;
+        const y = (v * waveformCanvas.height) / 2;
+        if (i === 0) waveformCtx.moveTo(x, y);
+        else waveformCtx.lineTo(x, y);
+        x += sliceWidth;
+      }
+
+      waveformCtx.lineTo(waveformCanvas.width, waveformCanvas.height / 2);
+      waveformCtx.stroke();
+      animationFrameId = requestAnimationFrame(drawWaveform);
+    }
+
+    function stopRecording() {
+      if (isRecording) {
+        isRecording = false;
+        recognition.stop();
+        clearTimeout(recordingTimeout);
+        clearInterval(countdownInterval);
+        countdownTimer.textContent = '00:60';
+        startVoiceButton.textContent = 'START VOICE';
+        startVoiceButton.classList.remove('recording');
+        recordingLight.classList.remove('active');
+        if (audioContext) {
+          audioContext.close();
+          audioContext = null;
+        }
+        cancelAnimationFrame(animationFrameId);
+        waveformCtx.clearRect(0, 0, waveformCanvas.width, waveformCanvas.height);
+        styleSelect.classList.add('blink-yellow');
+      }
+    }
+
+    // Reset all highlights
+    function resetHighlights() {
+      styleSelect.classList.remove('blink-yellow', 'highlight-yellow');
+      generateImageButton.classList.remove('blink-yellow', 'highlight-yellow');
+      saveButton.classList.remove('blink-yellow', 'highlight-yellow');
+      thinkingDots.classList.remove('highlight-yellow');
+      thinkingDots.style.display = 'none';
+    }
+
+    // Update Time Display (YYYY-MM-DD)
+    function updateTime() {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const time = now.toLocaleTimeString('en-US', { hour12: true });
+      currentTime.textContent = `${year}-${month}-${day} ${time}`;
+    }
+    updateTime();
+    setInterval(updateTime, 1000);
+
+    // Event Listeners
+    startVoiceButton.addEventListener('click', () => {
+      if (!SpeechRecognition) return;
+      if (!isRecording) {
+        finalTranscript = '';
+        recognition.start();
+      } else {
+        stopRecording();
+      }
+    });
+
+    promptButton.addEventListener('click', () => {
+      const randomPrompt = therapeuticPrompts[Math.floor(Math.random() * therapeuticPrompts.length)];
+      activityInput.value = randomPrompt;
+      finalTranscript = randomPrompt;
+    });
+
+    styleSelect.addEventListener('change', () => {
+      selectedStyle = styleSelect.value;
+      if (selectedStyle) {
+        styleSelect.classList.remove('blink-yellow');
+        generateImageButton.classList.add('blink-yellow');
+      }
+    });
+
+    generateImageButton.addEventListener('click', async () => {
+      if (!activityInput.value || !selectedStyle) {
+        alert('Please provide a prompt and select a style.');
+        return;
+      }
+
+      generateImageButton.classList.remove('blink-yellow');
+      generateImageButton.classList.add('highlight-yellow');
+      thinkingDots.classList.add('highlight-yellow');
+      thinkingDots.style.display = 'block';
+      generatedImage.style.display = 'none';
+
+      try {
+        const styledPrompt = `${activityInput.value}, rendered in ${selectedStyle} style`;
+        const response = await fetch('https://synthcalm-a2n7.onrender.com/generate-image', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            prompt: styledPrompt,
+            style: selectedStyle,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to generate image');
+        }
+
+        const data = await response.json();
+
+        if (data.image) {
+          generatedImage.src = data.image;
+          generatedImage.style.display = 'block';
+          currentPrompt = activityInput.value;
+
+          resetHighlights();
+          saveButton.classList.add('blink-yellow');
+        } else {
+          throw new Error('No image returned from server');
+        }
+      } catch (error) {
+        console.error('Error generating image:', error);
+        alert('Failed to generate image: ' + error.message);
+        resetHighlights();
+      }
+    });
+
+    saveButton.addEventListener('click', () => {
+      if (!generatedImage.src || generatedImage.style.display === 'none') {
+        alert('No image to save. Generate an image first.');
+        return;
+      }
+
+      const moodHistory = document.getElementById('moodHistory');
+      const entry = document.createElement('div');
+      entry.className = 'history-entry';
+      const img = document.createElement('img');
+      img.src = generatedImage.src;
+      img.alt = 'Saved Image';
+      const text = document.createElement('span');
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      text.textContent = `${year}-${month}-${day} ${now.toLocaleTimeString('en-US', { hour12: true })}: ${currentPrompt}`;
+      entry.appendChild(img);
+      entry.appendChild(text);
+      moodHistory.appendChild(entry);
+
+      console.log('Saved to Mood History:', { prompt: currentPrompt, image: generatedImage.src });
+      resetHighlights();
+      generatedImage.style.display = 'none';
+    });
+
+    clearButton.addEventListener('click', () => {
+      activityInput.value = '';
+      finalTranscript = '';
+      currentPrompt = '';
+      selectedStyle = null;
+      styleSelect.value = '';
+      resetHighlights();
+      generatedImage.style.display = 'none';
+    });
+
+    synthcalmHomeButton.addEventListener('click', () => {
+      alert('Returning to SynthCalm Home...');
+      resetHighlights();
+      setTimeout(() => {
+        window.location.href = 'https://synthcalm.com';
+      }, 500); // Waits 0.5 seconds so the alert is visible before redirecting
     });
   </script>
 </body>
