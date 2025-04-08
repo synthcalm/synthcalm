@@ -16,16 +16,19 @@ let isAuthenticated = false;
 (async () => {
   const { data: { session }, error } = await supabase.auth.getSession();
   if (error || !session || !session.user) {
-    [ 'startVoice', 'clear', 'generate', 'saveMood', 'activityInput', 'styleSelect' ]
-      .forEach(id => document.getElementById(id).disabled = true);
-    const msg = document.getElementById('moodHistoryMessage');
-    if (msg) msg.style.display = 'block';
-    alert("Please log in to use this feature.");
-  } else {
-    isAuthenticated = true;
-    const msg = document.getElementById('moodHistoryMessage');
-    if (msg) msg.style.display = 'none';
-  }
+  [ 'startVoice', 'clear', 'generate', 'saveMood', 'activityInput', 'styleSelect', 'prompt' ]
+    .forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.disabled = true;
+    });
+  const msg = document.getElementById('moodHistoryMessage');
+  if (msg) msg.style.display = 'block';
+  alert("Please log in to use this feature.");
+} else {
+  isAuthenticated = true;
+  const msg = document.getElementById('moodHistoryMessage');
+  if (msg) msg.style.display = 'none';
+}
 })();
 
 function canGenerateImage() {
