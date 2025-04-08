@@ -202,43 +202,72 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 🎨 Generate Image
   document.getElementById('generate').addEventListener('click', async () => {
-    const mood = document.getElementById('activityInput').value;
-    const style = document.getElementById('styleSelect').value;
-    const image = document.getElementById('generatedImage');
-    const thinking = document.getElementById('thinking');
+  const mood = document.getElementById('activityInput').value;
+  const style = document.getElementById('styleSelect').value;
+  const image = document.getElementById('generatedImage');
+  const thinking = document.getElementById('thinking');
 
-    if (!mood) return alert("Please describe your mood first.");
-    if (!style || style === 'none') return alert("Please choose an art style.");
+  if (!mood) return alert("Please describe your mood first.");
+  if (!style || style === 'none') return alert("Please choose an art style.");
 
-    if (!isAuthenticated && !canGenerateImage()) {
-      alert("Image limit reached. Please log in for unlimited access.");
-      return;
+  if (!isAuthenticated) {
+    if (!canGenerateImage()) {
+      return alert("Image limit reached. Please log in for unlimited access.");
+    }
+  } else {
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('image_limit, last_reset')
+      .eq('id', user.id)
+      .single();
+
+    if (error || !profile) {
+      return alert('Could not retrieve usage data.');
     }
 
-    startGeneratingDots();
-    thinking.style.display = 'block';
+    const lastReset = new Date(profile.last_reset);
+    const now = new Date();
+    const diffDays = (now - lastReset) / (1000 * 60 * 60 * 24);
 
-    try {
-      const res = await fetch('https://synthcalm-a2n7.onrender.com/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: `${mood} in ${style} style` })
-      });
-
-      const data = await res.json();
-      if (data.image) {
-        image.src = `data:image/png;base64,${data.image}`;
-        image.style.display = 'block';
-      } else {
-        alert("No image returned from server.");
-      }
-    } catch (err) {
-      console.error("Image generation error:", err);
-      alert("Error generating image. Please try again.");
-    } finally {
-      stopThinkingText();
+    if (diffDays >= 7) {
+      await supabase.from('profiles').update({
+        image_limit: 2,
+        last_reset: now.toISOString()
+      }).eq('id', user.id);
+    } else if (profile.image_limit <= 0) {
+      return alert("You've reached your weekly limit. Upgrade for unlimited access.");
+    } else {
+      await supabase.from('profiles').update({
+        image_limit: profile.image_limit - 1
+      }).eq('id', user.id);
     }
-  });
+  }
+
+  startGeneratingDots();
+  thinking.style.display = 'block';
+
+  try {
+    const res = await fetch('https://synthcalm-a2n7.onrender.com/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: `${mood} in ${style} style` })
+    });
+
+    const data = await res.json();
+    if (data.image) {
+      image.src = `data:image/png;base64,${data.image}`;
+      image.style.display = 'block';
+    } else {
+      alert("No image returned from server.");
+    }
+  } catch (err) {
+    console.error("Image generation error:", err);
+    alert("Error generating image. Please try again.");
+  } finally {
+    stopThinkingText();
+  }
+});
 
   // 💾 Save to Supabase
   document.getElementById('saveMood').addEventListener('click', async () => {
