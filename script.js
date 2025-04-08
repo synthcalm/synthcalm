@@ -231,33 +231,34 @@ document.addEventListener('DOMContentLoaded', () => {
       const now = new Date();
       const diffDays = (now - lastReset) / (1000 * 60 * 60 * 24);
   
-      if (diffDays >= 7) {
-        await supabase
-          .from('profiles')
-          .update({ image_limit: 3, last_reset: now.toISOString() })
-          .eq('id', user.id)
-          .select()
-          .then(({ data, error }) => {
-            console.log('🔄 Reset result:', data, error);
-          });
-      } else if (profile.image_limit <= 0) {
-        return alert("You've reached your weekly limit. Upgrade for unlimited access.");
+     if (diffDays >= 7) {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({ image_limit: 3, last_reset: now.toISOString() })
+        .eq('id', user.id)
+        .select();
+    
+      if (error) {
+        console.error('❌ Failed to reset weekly limit:', error);
       } else {
-        const { data, error } = await supabase
+        console.log('🔄 Reset result:', data);
+      }
+    } else if (profile.image_limit <= 0) {
+      return alert("You've reached your weekly limit. Upgrade for unlimited access.");
+    } else {
+      const { data, error } = await supabase
         .from('profiles')
         .update({ image_limit: profile.image_limit - 1 })
         .eq('id', user.id)
         .select();
-      
+    
       if (error) {
         console.error('❌ Failed to decrease image limit:', error);
       } else {
         console.log('🔄 Image limit decreased:', data);
       }
-
-      }
     }
-  
+
     startGeneratingDots();
     thinking.style.display = 'block';
   
