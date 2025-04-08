@@ -12,14 +12,18 @@ const ctx = canvas.getContext('2d');
 let audioContext, analyser, dataArray, source;
 
 // 🔒 AUTH GUARD
+let isAuthenticated = false;
+
 (async () => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
-    alert("Please log in to use this feature.");
     [
       'startVoice', 'clear', 'generate', 'saveMood',
       'activityInput', 'styleSelect'
     ].forEach(id => document.getElementById(id).disabled = true);
+    alert("Please log in to use this feature.");
+  } else {
+    isAuthenticated = true;
   }
 })();
 
@@ -68,7 +72,6 @@ function setupWaveform() {
     stopRecording();
   });
 }
-
 
 function drawWaveform() {
   if (!isRecording) return;
@@ -197,6 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('generatedImage').style.display = 'none';
   });
 
+  // 🎨 Generate Image
   document.getElementById('generate').addEventListener('click', async () => {
     const mood = document.getElementById('activityInput').value;
     const style = document.getElementById('styleSelect').value;
@@ -205,6 +209,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!mood) return alert("Please describe your mood first.");
     if (!style || style === 'none') return alert("Please choose an art style.");
+
+    if (!isAuthenticated && !canGenerateImage()) {
+      alert("Image limit reached. Please log in for unlimited access.");
+      return;
+    }
 
     startGeneratingDots();
     thinking.style.display = 'block';
