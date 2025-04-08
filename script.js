@@ -231,16 +231,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const diffDays = (now - lastReset) / (1000 * 60 * 60 * 24);
 
     if (diffDays >= 7) {
-      await supabase.from('profiles').update({
-        image_limit: 2,
-        last_reset: now.toISOString()
-      }).eq('id', user.id);
+      await supabase
+        .from('profiles')
+        .update({ image_limit: 3, last_reset: now.toISOString() })
+        .eq('id', user.id)
+        .select();
     } else if (profile.image_limit <= 0) {
       return alert("You've reached your weekly limit. Upgrade for unlimited access.");
     } else {
-      await supabase.from('profiles').update({
-        image_limit: profile.image_limit - 1
-      }).eq('id', user.id);
+      await supabase
+        .from('profiles')
+        .update({ image_limit: profile.image_limit - 1 })
+        .eq('id', user.id)
+        .select();
     }
   }
 
