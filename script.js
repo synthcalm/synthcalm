@@ -23,6 +23,28 @@ let audioContext, analyser, dataArray, source;
   }
 })();
 
+// 🌐 3 Images Per Week Limit (for non-logged-in users)
+function canGenerateImage() {
+  const usageKey = 'mia_image_usage';
+  const now = Date.now();
+  const oneWeek = 7 * 24 * 60 * 60 * 1000;
+
+  let usage = JSON.parse(localStorage.getItem(usageKey));
+
+  if (!usage || now - usage.resetTime > oneWeek) {
+    usage = { count: 0, resetTime: now };
+    localStorage.setItem(usageKey, JSON.stringify(usage));
+  }
+
+  if (usage.count >= 3) {
+    return false;
+  }
+
+  usage.count++;
+  localStorage.setItem(usageKey, JSON.stringify(usage));
+  return true;
+}
+
 function updateDateTime() {
   const now = new Date();
   const dateTimeString = now.toISOString().slice(0, 19).replace("T", " ");
@@ -46,6 +68,7 @@ function setupWaveform() {
     stopRecording();
   });
 }
+
 
 function drawWaveform() {
   if (!isRecording) return;
