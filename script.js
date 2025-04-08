@@ -243,14 +243,18 @@ document.addEventListener('DOMContentLoaded', () => {
       } else if (profile.image_limit <= 0) {
         return alert("You've reached your weekly limit. Upgrade for unlimited access.");
       } else {
-        await supabase
-          .from('profiles')
-          .update({ image_limit: profile.image_limit - 1 })
-          .eq('id', user.id)
-          .select()
-          .then(({ data, error }) => {
-            console.log('🔄 Decrease result:', data, error);
-          });
+        const { data, error } = await supabase
+        .from('profiles')
+        .update({ image_limit: profile.image_limit - 1 })
+        .eq('id', user.id)
+        .select();
+      
+      if (error) {
+        console.error('❌ Failed to decrease image limit:', error);
+      } else {
+        console.log('🔄 Image limit decreased:', data);
+      }
+
       }
     }
   
