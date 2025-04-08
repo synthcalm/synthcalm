@@ -26,27 +26,22 @@
     window.supabase = supabase;
   </script>
 
+   </script>
+
+  <!-- Optional future login/logout logic — removed for now -->
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
-      const loginButton = document.getElementById('login');
-      const logoutButton = document.getElementById('logout');
-
-      // Check auth state
+      // Ensure user is authenticated before accessing app features
       const { data: { session } } = await supabase.auth.getSession();
-      toggleAuthButtons(session);
+      const isAuthenticated = !!session;
 
-      // Handle login
-      loginButton.addEventListener('click', async () => {
-        const email = prompt("Enter your email:");
-        if (!email) return;
-        const { error } = await supabase.auth.signInWithOtp({ email });
-        if (error) {
-          alert('Login failed. Check the email and try again.');
-          console.error(error);
-        } else {
-          alert('Check your email for the login link!');
-        }
-      });
+      // You can conditionally show/hide mood history or UI sections here
+      if (isAuthenticated) {
+        console.log('✅ User is logged in');
+      } else {
+        console.log('🚫 User not logged in');
+      }
+    });
 
       // Handle logout
       logoutButton.addEventListener('click', async () => {
