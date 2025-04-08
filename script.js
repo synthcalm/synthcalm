@@ -276,14 +276,13 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         alert("No image returned from server.");
       }
-    } catch (err) {
+      } catch (err) {
       console.error("Image generation error:", err);
       alert("Error generating image. Please try again.");
     } finally {
       stopThinkingText();
     }
-  });
-
+  }); // ✅ closes generate button handler
 
   // 💾 Save to Supabase
   document.getElementById('saveMood').addEventListener('click', async () => {
@@ -309,4 +308,5 @@ document.addEventListener('DOMContentLoaded', () => {
       alert('Mood saved successfully!');
     }
   });
-});
+
+}); // ✅ closes DOMContentLoaded
