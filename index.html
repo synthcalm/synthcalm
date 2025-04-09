@@ -25,7 +25,24 @@
 
     // Make globally accessible
     window.supabase = supabase;
-  </script>
+    // 🌟 Map each dropdown value to an expressive style phrase for better AI results
+  const stylePromptMap = {
+    photo: 'a hyper-realistic photograph',
+    anime: 'anime-style illustration',
+    abstract: 'abstract art with bold shapes',
+    surrealism: 'surrealist dream-like artwork',
+    'post-modern': 'post-modern design with unconventional forms',
+    cyberpunk: 'cyberpunk futuristic digital art',
+    'arabic-calligraphy': 'traditional Arabic calligraphy with ornate letters',
+    'chinese-calligraphy': 'elegant Chinese calligraphy brushwork',
+    'japanese-calligraphy': 'Japanese calligraphy in shodo style',
+    marvel: 'in the style of a Marvel comic book cover',
+    'art-deco': 'Art Deco geometric patterns and design',
+    impressionist: 'Impressionist painting with visible brushstrokes',
+    'pop-art': 'colorful Pop Art style like Andy Warhol',
+    'digital-painting': 'high-res digital painting with fine detail',
+    minimalism: 'minimalist art with simple shapes and soft colors',
+  };
 
    </script>
 
@@ -694,7 +711,8 @@
       generatedImage.style.display = 'none';
 
       try {
-        const styledPrompt = `${activityInput.value}, rendered in ${selectedStyle} style`;
+        const styleDescription = stylePromptMap[selectedStyle] || selectedStyle;
+        const styledPrompt = `${activityInput.value}, in ${styleDescription}`;
         const response = await fetch('https://synthcalm-a2n7.onrender.com/generate-image', {
           method: 'POST',
           headers: {
