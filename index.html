@@ -781,7 +781,7 @@ window.addEventListener('load', async () => {
       alert('Returning to SynthCalm Home...');
       resetHighlights();
       setTimeout(() => {
-        window.location.href = 'https://synthcalm.com';
+        window.top.location.href = 'https://synthcalm.com';
       }, 500); // Waits 0.5 seconds so the alert is visible before redirecting
     });
 </script>
