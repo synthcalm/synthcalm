@@ -380,60 +380,52 @@
     });
   </script>
   <script>
-    document.addEventListener('DOMContentLoaded', async () => {
-      const moodHistory = document.getElementById('moodHistory');
-      moodHistory.innerHTML = ''; // Clear old content
-  
-      const { data: userData } = await supabase.auth.getUser();
-      const user_id = userData?.user?.id;
-  
-      if (!user_id) {
-        moodHistory.innerHTML = '<p style="color: #f55;">Please log in to see your mood history.</p>';
-        return;
-      }
-  
-      const { data, error } = await supabase
-        .from('mia_logs')
-        .select('created_at, mood_text, image_url')
-        .eq('user_id', user_id)
-        .order('created_at', { ascending: false });
-  
-      if (error) {
-        console.error(error);
-        moodHistory.innerHTML = '<p style="color: #f55;">Failed to fetch</p>';
-        return;
-      }
-  
-      if (!data || data.length === 0) {
-        moodHistory.innerHTML = '<p>No mood history yet.</p>';
-        return;
-      }
-  
-      data.forEach(entry => {
-        const wrapper = document.createElement('div');
-        wrapper.style.display = 'flex';
-        wrapper.style.alignItems = 'center';
-        wrapper.style.marginBottom = '12px';
-  
-        const thumb = document.createElement('img');
-        thumb.src = entry.image_url;
-        thumb.alt = 'Mood Image';
-        thumb.style.width = '40px';
-        thumb.style.height = '40px';
-        thumb.style.objectFit = 'cover';
-        thumb.style.border = '1px solid #0ff';
-        thumb.style.marginRight = '8px';
-  
-        const text = document.createElement('span');
-        text.style.color = '#0ff';
-        text.style.flexGrow = '1';
-        text.textContent = `${new Date(entry.created_at).toLocaleString()}: ${entry.mood_text}`;
-  
-        wrapper.appendChild(thumb);
-        wrapper.appendChild(text);
-        moodHistory.appendChild(wrapper);
-      });
-    });
+window.addEventListener('load', async () => {
+  const moodHistory = document.getElementById('moodHistory');
+  moodHistory.innerHTML = ''; // Clear old content
+
+  const { data: { user } } = await supabase.auth.getUser();
+  const user_id = user?.id;
+
+  if (!user_id) {
+    moodHistory.innerHTML = '<p style="color: #f55;">Please log in to see your mood history.</p>';
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from('mia_logs')
+    .select('created_at, mood_text, image_url')
+    .eq('user_id', user_id)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error(error);
+    moodHistory.innerHTML = '<p style="color: #f55;">Failed to fetch</p>';
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    moodHistory.innerHTML = '<p>No mood history yet.</p>';
+    return;
+  }
+
+  data.forEach(entry => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'history-entry';
+
+    const thumb = document.createElement('img');
+    thumb.src = entry.image_url;
+    thumb.alt = 'Mood Image';
+
+    const text = document.createElement('span');
+    text.textContent = `${new Date(entry.created_at).toLocaleString()}: ${entry.mood_text}`;
+
+    wrapper.appendChild(thumb);
+    wrapper.appendChild(text);
+    moodHistory.appendChild(wrapper);
+  });
+});
+
   </script>
 
   <script>
