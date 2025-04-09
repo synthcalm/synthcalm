@@ -16,6 +16,8 @@ body {
   padding: 20px;
   border: 2px solid #0ff;
   border-radius: 12px;
+  box-sizing: border-box;
+  background-color: #000;
 }
 
 canvas#waveform {
@@ -58,6 +60,7 @@ textarea#activityInput {
   overflow-wrap: break-word;
   font-size: 14px;
   text-transform: none;
+  text-align: left;
 }
 
 select#styleSelect {
@@ -100,6 +103,8 @@ select#styleSelect:hover {
 
 .button {
   cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease-in-out;
 }
 
 .button.recording {
@@ -144,7 +149,7 @@ select#styleSelect:hover {
   margin-top: 5px;
   margin-bottom: 10px;
   height: 20px;
-  display: none; /* IMPORTANT: hidden by default */
+  display: none;
 }
 
 #moodHistory {
@@ -200,4 +205,32 @@ select#styleSelect.blink-yellow,
 
 #thinking.highlight-yellow {
   color: #ffff00 !important;
+}
+
+#loadingOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: black;
+  color: #0ff;
+  font-family: 'Courier New', monospace;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+#loadingOverlay.hidden {
+  display: none;
+}
+
+.loader-text {
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+  50% { opacity: 0.3; }
 }
