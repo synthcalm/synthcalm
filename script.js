@@ -15,20 +15,31 @@ let isAuthenticated = false;
 // ✅ Auth check (safer session-based)
 (async () => {
   const { data: { session }, error } = await supabase.auth.getSession();
+  
+  // If there's an error or no session/user, disable buttons and show the login prompt
   if (error || !session || !session.user) {
-  [ 'startVoice', 'clear', 'generate', 'saveMood', 'activityInput', 'styleSelect', 'prompt' ]
-    .forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.disabled = true;
-    });
-  const msg = document.getElementById('moodHistoryMessage');
-  if (msg) msg.style.display = 'block';
-  alert("Please log in to use this feature.");
-} else {
-  isAuthenticated = true;
-  const msg = document.getElementById('moodHistoryMessage');
-  if (msg) msg.style.display = 'none';
-}
+    [ 'startVoice', 'clear', 'generate', 'saveMood', 'activityInput', 'styleSelect', 'prompt' ]
+      .forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = true;
+      });
+    
+    const msg = document.getElementById('moodHistoryMessage');
+    if (msg) msg.style.display = 'block';
+    alert("Please log in to use this feature.");
+  } else {
+    // If logged in, update the flag and enable the buttons
+    isAuthenticated = true;
+    const msg = document.getElementById('moodHistoryMessage');
+    if (msg) msg.style.display = 'none';
+
+    // Enable buttons after successful login
+    [ 'startVoice', 'clear', 'generate', 'saveMood', 'activityInput', 'styleSelect', 'prompt' ]
+      .forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = false;
+      });
+  }
 })();
 
 function canGenerateImage() {
