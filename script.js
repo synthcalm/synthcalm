@@ -64,6 +64,7 @@ setInterval(() => {
   document.getElementById('dateTimeDisplay').textContent = now.toISOString().slice(0, 19).replace("T", " ");
 }, 1000);
 
+// Waveform setup for voice recording
 function setupWaveform() {
   audioContext = new (window.AudioContext || window.webkitAudioContext)();
   analyser = audioContext.createAnalyser();
@@ -106,6 +107,7 @@ function drawWaveform() {
   ctx.stroke();
 }
 
+// Voice recognition setup
 function setupWebSpeechAPI() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) return alert("Web Speech API not supported.");
@@ -164,6 +166,7 @@ function startGeneratingDots() {
   }, 500);
   thinking.style.display = 'block';
 }
+
 function stopThinkingText() {
   clearInterval(thinkingInterval);
   const thinking = document.getElementById('thinking');
@@ -171,6 +174,7 @@ function stopThinkingText() {
   thinking.style.display = 'none';
 }
 
+// Button actions after DOM content is loaded
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('startVoice').addEventListener('click', () => isRecording ? stopRecording() : startRecording());
   document.getElementById('clear').addEventListener('click', () => {
@@ -188,46 +192,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (isAuthenticated) {
       const { data: { user } } = await supabase.auth.getUser();
-      const { data: profile } = await supabase.from('profiles').select('image_limit,last_reset').eq('id', user.id).single();
-      const now = new Date();
-      const reset = new Date(profile.last_reset);
-      const diffDays = (now - reset) / (1000 * 60 * 60 * 24);
-
-      if (diffDays >= 7) await supabase.from('profiles').update({ image_limit: 3, last_reset: now.toISOString() }).eq('id', user.id);
-      else if (profile.image_limit <= 0) return alert("Limit exceeded. Upgrade for more.");
-      else await supabase.from('profiles').update({ image_limit: profile.image_limit - 1 }).eq('id', user.id);
-    }
-
-    startGeneratingDots();
-    try {
-      const res = await fetch('https://synthcalm-a2n7.onrender.com/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: `${mood} in ${style} style` })
-      });
-      const data = await res.json();
-      if (data.image) {
-        image.src = `data:image/png;base64,${data.image}`;
-        image.style.display = 'block';
-      } else alert("No image returned.");
-    } catch (err) {
-      alert("Image generation failed.");
-    } finally {
-      stopThinkingText();
-    }
-  });
-
-  document.getElementById('saveMood').addEventListener('click', async () => {
-    const mood = document.getElementById('activityInput').value;
-    const imageSrc = document.getElementById('generatedImage').src;
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user || !mood || !imageSrc) return alert("Log in, describe mood, and generate image first.");
-
-    const { error } = await supabase.from('mia_logs').insert({
-      user_id: user.id,
-      mood_text: mood,
-      image_url: imageSrc
-    });
-    error ? alert("Save failed.") : alert("Mood saved!");
-  });
-});
+      const { data: profile } = await supabase.from('profiles').select
