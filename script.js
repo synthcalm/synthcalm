@@ -48,6 +48,13 @@ async function checkSession() {
 // Session check on page load
 window.addEventListener('load', checkSession);
 
+// Sign out logic
+async function signOut() {
+  await supabase.auth.signOut();
+  window.location.href = "https://synthcalm.com";  // Redirect to homepage after sign out
+}
+
+// Session timeout check
 function canGenerateImage() {
   const usageKey = 'mia_image_usage';
   const now = Date.now();
@@ -65,6 +72,7 @@ function canGenerateImage() {
   return true;
 }
 
+// Time display
 setInterval(() => {
   const now = new Date();
   document.getElementById('dateTimeDisplay').textContent = now.toISOString().slice(0, 19).replace("T", " ");
