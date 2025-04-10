@@ -16,7 +16,7 @@ if (access_token && refresh_token) {
   supabase.auth.setSession({ access_token, refresh_token })
     .then(() => {
       window.history.replaceState({}, document.title, "/synthcalm/");
-      window.location.href = "https://synthcalm.com"; // Redirect to main site
+      window.location.href = "https://synthcalm.com/reset-password"; // Redirect to main site
     });
 }
 
