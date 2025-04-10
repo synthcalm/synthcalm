@@ -1,5 +1,3 @@
-// === Mood Into Art: Cleaned Script with Supabase Auth ===
-
 let isRecording = false;
 let countdown = 60;
 let countdownInterval = null;
@@ -13,33 +11,42 @@ let audioContext, analyser, dataArray, source;
 let isAuthenticated = false;
 
 // ✅ Auth check (safer session-based)
-(async () => {
-   const { data: { session }, error } = await supabase.auth.getSession();
+async function checkSession() {
+  const { data: { session }, error } = await supabase.auth.getSession();
 
-   if (error || !session || !session.user) {
-       // If not logged in, show login message and disable buttons
-       [ 'startVoice', 'clear', 'generate', 'saveMood', 'activityInput', 'styleSelect', 'prompt' ]
-         .forEach(id => {
-           const el = document.getElementById(id);
-           if (el) el.disabled = true;
-         });
+  if (error || !session || !session.user) {
+    // If not logged in, show login message and disable buttons
+    [ 'startVoice', 'clear', 'generate', 'saveMood', 'activityInput', 'styleSelect', 'prompt' ]
+      .forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = true;
+      });
 
-       const msg = document.getElementById('moodHistoryMessage');
-       if (msg) msg.style.display = 'block';
-       alert("Please log in to use this feature.");
-   } else {
-       // If logged in, show UI for authenticated users
-       isAuthenticated = true;
-       const msg = document.getElementById('moodHistoryMessage');
-       if (msg) msg.style.display = 'none';
+    const msg = document.getElementById('moodHistoryMessage');
+    if (msg) msg.style.display = 'block';
+    alert("Please log in to use this feature.");
+  } else {
+    // If logged in, show UI for authenticated users
+    isAuthenticated = true;
+    const msg = document.getElementById('moodHistoryMessage');
+    if (msg) msg.style.display = 'none';
 
-       [ 'startVoice', 'clear', 'generate', 'saveMood', 'activityInput', 'styleSelect', 'prompt' ]
-         .forEach(id => {
-           const el = document.getElementById(id);
-           if (el) el.disabled = false;
-         });
-   }
-})();
+    [ 'startVoice', 'clear', 'generate', 'saveMood', 'activityInput', 'styleSelect', 'prompt' ]
+      .forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = false;
+      });
+
+    // Update UI to show that user is logged in
+    const userMessage = document.getElementById('userStatus');
+    if (userMessage) {
+      userMessage.innerText = `Welcome, ${session.user.email}`;
+    }
+  }
+}
+
+// Session check on page load
+window.addEventListener('load', checkSession);
 
 function canGenerateImage() {
   const usageKey = 'mia_image_usage';
@@ -191,4 +198,51 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (isAuthenticated) {
       const { data: { user } } = await supabase.auth.getUser();
-      const { data: profile } = await supabase.from('profiles').select
+      const { data: profile } = await supabase.from('profiles').select('image_limit').eq('id', user.id).single();
+
+      const now = new Date();
+      const reset = new Date(profile.last_reset);
+      const diffDays = (now - reset) / (1000 * 60 * 60 * 24);
+
+      if (diffDays >= 7) {
+        await supabase.from('profiles').update({ image_limit: 3, last_reset: now.toISOString() }).eq('id', user.id);
+      } else if (profile.image_limit <= 0) {
+        return alert("Limit exceeded. Upgrade for more.");
+      } else {
+        await supabase.from('profiles').update({ image_limit: profile.image_limit - 1 }).eq('id', user.id);
+      }
+    }
+
+    startGeneratingDots();
+    try {
+      const res = await fetch('https://synthcalm-a2n7.onrender.com/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: `${mood} in ${style} style` })
+      });
+      const data = await res.json();
+      if (data.image) {
+        image.src = `data:image/png;base64,${data.image}`;
+        image.style.display = 'block';
+      } else alert("No image returned.");
+    } catch (err) {
+      alert("Image generation failed.");
+    } finally {
+      stopThinkingText();
+    }
+  });
+
+  document.getElementById('saveMood').addEventListener('click', async () => {
+    const mood = document.getElementById('activityInput').value;
+    const imageSrc = document.getElementById('generatedImage').src;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user || !mood || !imageSrc) return alert("Log in, describe mood, and generate image first.");
+
+    const { error } = await supabase.from('mia_logs').insert({
+      user_id: user.id,
+      mood_text: mood,
+      image_url: imageSrc
+    });
+    error ? alert("Save failed.") : alert("Mood saved!");
+  });
+});
