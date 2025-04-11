@@ -1,754 +1,757 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Audio Player with 7-Segment Display</title>
-    <!-- Import DSEG7 Classic font for authentic 7-segment display -->
-    <link href="https://cdn.jsdelivr.net/npm/dseg@0.46.0/css/dseg.css" rel="stylesheet">
-    <style>
-        body {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            background-color: black;
-            margin: 0;
-            font-family: Arial, sans-serif;
+  <!-- Load Supabase JS SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Initialize Supabase -->
+  <script>
+    const SUPABASE_URL = 'https://ysuaedvcfplzzfcmmkgb.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzdWFlZHZjZnBsenpmY21ta2diIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI5NTk5MDEsImV4cCI6MjA1ODUzNTkwMX0.yNG-z5iMK2pDmxzTUoArJOivbGXTfSve2HyHH7YWgzc';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  </script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const loginButton = document.getElementById('login');
+      const logoutButton = document.getElementById('logout');
+
+      // Check auth state
+      const { data: { session } } = await supabase.auth.getSession();
+      toggleAuthButtons(session);
+
+      // Handle login
+      loginButton.addEventListener('click', async () => {
+        const email = prompt("Enter your email:");
+        if (!email) return;
+        const { error } = await supabase.auth.signInWithOtp({ email });
+        if (error) {
+          alert('Login failed. Check the email and try again.');
+          console.error(error);
+        } else {
+          alert('Check your email for the login link!');
         }
-        .player {
-            background-color: black;
-            padding: 20px;
-            border-radius: 15px;
-            text-align: center;
-            width: 100%;
-            max-width: 400px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .display {
-            background-color: black;
-            padding: 10px;
-            font-size: 2em;
-            margin-bottom: 10px;
-            width: 90%;
-            max-width: 400px;
-            border-radius: 8px;
-            color: #f00; /* Default red for non-quote text */
-            font-family: 'DSEG7 Classic', monospace;
-            letter-spacing: 1px;
-            text-shadow: 0 0 5px #f00, 0 0 10px #f00;
-            white-space: nowrap;
-            overflow: hidden;
-            position: relative;
-            height: 2em;
-            line-height: 2em;
-            text-transform: uppercase;
-        }
-        .display-text {
-            display: inline-block;
-            white-space: nowrap;
-            position: absolute;
-            left: 100%;
-        }
-        .display-text.static {
-            position: static;
-            width: 100%;
-            text-align: center;
-        }
-        .display-text.quote {
-            color: #00f; /* Blue for quotes */
-            text-shadow: 0 0 5px #00f, 0 0 10px #00f;
-        }
-        .time-counter {
-            background-color: black;
-            padding: 5px;
-            font-size: 1.2em;
-            margin-bottom: 15px;
-            min-width: 120px;
-            border-radius: 8px;
-            color: #f00;
-            font-family: 'DSEG7 Classic', monospace;
-            letter-spacing: 1px;
-            text-shadow: 0 0 5px #f00, 0 0 10px #f00;
-            white-space: nowrap;
-            overflow: hidden;
-            position: relative;
-            height: 1.5em;
-            line-height: 1.5em;
-            text-transform: uppercase;
-        }
-        .modes {
-            display: flex;
-            justify-content: center;
-            margin-bottom: 15px;
-            flex-wrap: wrap;
-        }
-        .modes button {
-            background-color: transparent;
-            color: #f00;
-            border: 2px solid #f00;
-            padding: 8px 10px;
-            margin: 5px;
-            cursor: pointer;
-            font-size: 0.9em;
-            transition: background-color 0.3s, color 0.3s;
-            min-width: 100px;
-            text-align: center;
-            font-family: Arial, sans-serif;
-        }
-        .timer-buttons {
-            display: flex;
-            justify-content: center;
-            margin-bottom: 15px;
-            flex-wrap: wrap;
-        }
-        .timer-buttons button {
-            background-color: transparent;
-            color: #DAA520;
-            border: 2px solid #DAA520;
-            padding: 8px 10px;
-            margin: 5px;
-            cursor: pointer;
-            font-size: 0.9em;
-            transition: background-color 0.3s, color 0.3s;
-            font-family: Arial, sans-serif;
-        }
-        .timer-buttons button:disabled {
-            cursor: not-allowed;
-        }
-        .controls {
-            display: flex;
-            justify-content: center;
-            margin-top: 15px;
-            flex-wrap: wrap;
-        }
-        .controls button {
-            background: transparent;
-            color: #FF0000;
-            border: 2px solid #FF0000;
-            padding: 8px 10px;
-            margin: 5px;
-            cursor: pointer;
-            font-size: 0.9em;
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 40px;
-            height: 30px;
-            transition: background-color 0.3s, color 0.3s, border-color 0.3s;
-            font-family: Arial, sans-serif;
-        }
-        .controls button::before,
-        .controls button::after {
-            content: '';
-            display: inline-block;
-            width: 0;
-            height: 0;
-            transition: border-color 0.3s, background 0.3s;
-        }
-        #fastReverse::before {
-            border-right: 8px solid #FF0000;
-            border-top: 4px solid transparent;
-            border-bottom: 4px solid transparent;
-            margin-right: 2px;
-        }
-        #fastReverse::after {
-            border-right: 8px solid #FF0000;
-            border-top: 4px solid transparent;
-            border-bottom: 4px solid transparent;
-        }
-        #fastForward::before {
-            border-left: 8px solid #FF0000;
-            border-top: 4px solid transparent;
-            border-bottom: 4px solid transparent;
-            margin-right: 2px;
-        }
-        #fastForward::after {
-            border-left: 8px solid #FF0000;
-            border-top: 4px solid transparent;
-            border-bottom: 4px solid transparent;
-        }
-        #playPause.play::before {
-            border-left: 8px solid #FF0000;
-            border-top: 4px solid transparent;
-            border-bottom: 4px solid transparent;
-        }
-        #playPause.pause::before {
-            width: 3px;
-            height: 8px;
-            background: #FF0000;
-            margin-right: 3px;
-        }
-        #playPause.pause::after {
-            width: 3px;
-            height: 8px;
-            background: #FF0000;
-        }
-        #stop::before {
-            width: 8px;
-            height: 8px;
-            background: #FF0000;
-        }
-        button.pressed {
-            background-color: #00FF00;
-            color: #000000;
-            border-color: #00FF00;
-        }
-        .controls button.pressed::before,
-        .controls button.pressed::after {
-            border-color: #00FF00;
-            background: #00FF00;
-        }
-        audio {
-            display: none;
-        }
-    </style>
+      });
+
+      // Handle logout
+      logoutButton.addEventListener('click', async () => {
+        await supabase.auth.signOut();
+        toggleAuthButtons(null);
+      });
+
+      // Recheck auth on change
+      supabase.auth.onAuthStateChange((_event, session) => {
+        toggleAuthButtons(session);
+      });
+
+      function toggleAuthButtons(session) {
+        document.getElementById('login').style.display = session ? 'none' : 'inline-block';
+        document.getElementById('logout').style.display = session ? 'inline-block' : 'none';
+      }
+    });
+  </script>
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SynthCalm</title>
+  <style>
+    body {
+      font-family: 'Courier New', monospace;
+      margin: 0;
+      background: #000;
+      color: #0ff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      flex-direction: column;
+    }
+
+    .container {
+      width: 100%; /* Full width for responsiveness */
+      max-width: 400px; /* Optimized for smartphones */
+      padding: 20px;
+      border: 2px solid #0ff;
+      border-radius: 12px;
+      box-sizing: border-box; /* Prevent padding from increasing width */
+    }
+
+    canvas#waveform {
+      width: 100%;
+      height: 160px;
+      background-color: #000;
+      border: 1px solid #0ff;
+      background-image: linear-gradient(to right, rgba(255, 255, 0, 0.3) 1px, transparent 1px),
+                        linear-gradient(to bottom, rgba(255, 255, 0, 0.3) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+
+    .footer-bar {
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      margin: 10px 0;
+    }
+
+    textarea,
+    .button,
+    select#styleSelect {
+      width: 100%;
+      background: #000;
+      border: 2px solid #0ff;
+      color: #0ff;
+      padding: 10px;
+      margin-bottom: 10px;
+      text-align: center;
+      box-sizing: border-box;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      text-transform: uppercase;
+    }
+
+    textarea#activityInput {
+      max-width: 100%;
+      min-height: 60px;
+      resize: vertical;
+      overflow-y: auto;
+      font-size: 14px;
+      text-transform: none;
+      text-align: left;
+    }
+
+    select#styleSelect {
+      text-align: center;
+      text-align-last: center;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      background-position: right 10px center;
+      padding-right: 30px;
+      cursor: pointer;
+    }
+
+    select#styleSelect option {
+      background: #000;
+      color: #0ff;
+    }
+
+    select#styleSelect:hover {
+      background: #0ff;
+      color: #000;
+    }
+
+    .button-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .button {
+      cursor: pointer;
+      position: relative;
+    }
+
+    .button.recording {
+      background: #000 !important;
+      border-color: #ff00ff !important;
+      color: #0ff !important;
+    }
+
+    .button:hover {
+      background: #0ff;
+      color: #000;
+    }
+
+    .seven-segment {
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+    }
+
+    .image-frame {
+      width: 100%;
+      max-height: 400px;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-top: 10px;
+      margin-bottom: 20px;
+    }
+
+    #generatedImage {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      display: none;
+      border: 2px solid #0ff;
+    }
+
+    #thinking {
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      color: #ff0;
+      text-align: center;
+      margin-top: 5px;
+      margin-bottom: 10px;
+      height: 20px;
+      display: none;
+    }
+
+    #moodHistory {
+      margin-top: 10px;
+      font-size: 13px;
+      color: #0ff;
+      text-align: center;
+    }
+
+    .history-entry {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 6px;
+      gap: 8px;
+    }
+
+    .history-entry img {
+      max-width: 100px;
+      max-height: 100px;
+      object-fit: contain;
+    }
+
+    .recording-light {
+      width: 10px;
+      height: 10px;
+      background-color: red;
+      border-radius: 50%;
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      display: none;
+      z-index: 10;
+    }
+
+    @keyframes blink {
+      0% { opacity: 1; }
+      50% { opacity: 0; }
+      100% { opacity: 1; }
+    }
+
+    .recording-light.active {
+      display: block;
+      animation: blink 1s infinite;
+    }
+
+    .divider {
+      border-top: 1px solid #0ff;
+      margin: 10px 0;
+    }
+
+    @keyframes soft-blink {
+      0% { border-color: #0ff; }
+      50% { border-color: #ffff00; }
+      100% { border-color: #0ff; }
+    }
+
+    .blink-yellow {
+      animation: soft-blink 1.5s infinite ease-in-out !important;
+    }
+
+    .highlight-yellow {
+      border-color: #ffff00 !important;
+      color: #0ff;
+    }
+
+    #thinking.highlight-yellow {
+      color: #ffff00 !important;
+    }
+  </style>
 </head>
 <body>
-    <div class="player" id="player">
-        <div class="display" id="ledDisplay">
-            <span class="display-text">OFF</span>
-        </div>
-        <div class="time-counter" id="timeCounter">00:00:00</div>
-        <div class="modes">
-            <button id="focusMode">FOCUS</button>
-            <button id="relaxMode">RELAX</button>
-            <button id="tinnitusMode">TINNITUS</button>
-        </div>
-        <div class="timer-buttons">
-            <button id="sleepMode">SLEEP</button>
-            <button id="timer15">15</button>
-            <button id="timer30">30</button>
-            <button id="timer45">45</button>
-            <button id="timer60">60</button>
-        </div>
-        <div class="controls">
-            <button id="fastReverse"></button>
-            <button id="playPause" class="play"></button>
-            <button id="stop"></button>
-            <button id="fastForward"></button>
-        </div>
-        <audio id="audioPlayer">
-            <source src="" type="audio/mpeg">
-            Your browser does not support the audio element.
-        </audio>
+  <div class="container">
+    <canvas id="waveform"></canvas>
+    <div class="footer-bar">
+      <span class="seven-segment" id="currentTime"></span>
+      <span class="seven-segment" id="countdownTimer">00:60</span>
     </div>
-    <script>
-        console.log("Audio Player Initialized");
+    <textarea id="activityInput"></textarea>
+    <button id="promptButton" class="button">PROMPT</button>
+    <div class="button-group">
+      <button id="startVoice" class="button">START VOICE<span id="recordingLight" class="recording-light"></span></button>
+      <button id="clear" class="button">CLEAR</button>
+    </div>
+    <div class="button-group">
+      <select id="styleSelect">
+        <option value="">CHOOSE STYLE</option>
+        <option value="photo">PHOTO</option>
+        <option value="anime">ANIME</option>
+        <option value="abstract">ABSTRACT</option>
+        <option value="surrealism">SURREALISM</option>
+        <option value="post-modern">POST-MODERN</option>
+        <option value="cyberpunk">CYBERPUNK</option>
+        <option value="arabic-calligraphy">ARABIC CALLIGRAPHY</option>
+        <option value="chinese-calligraphy">CHINESE CALLIGRAPHY</option>
+        <option value="japanese-calligraphy">JAPANESE CALLIGRAPHY</option>
+        <option value="marvel">MARVEL</option>
+        <option value="art-deco">ART DECO</option>
+        <option value="impressionist">IMPRESSIONIST</option>
+        <option value="pop-art">POP ART</option>
+        <option value="digital-painting">DIGITAL PAINTING</option>
+        <option value="minimalism">MINIMALISM</option>
+      </select>
+      <button id="generateImage" class="button">GENERATE IMAGE</button>
+    </div>
+    <div class="image-frame">
+      <img id="generatedImage" alt="Generated Image">
+    </div>
+    <div class="button-group">
+      <button id="save" class="button">SAVE</button>
+      <button id="synthcalmHome" class="button">SYNTHCALM HOME</button>
+    </div>
+    <div id="thinking">GENERATING...</div>
+    <div class="divider"></div>
+    <div id="moodHistory">
+      <h3>MOOD HISTORY</h3>
+    </div>
+  </div>
+  <script>
+    document.getElementById('saveMood').addEventListener('click', async () => {
+      const mood = document.getElementById('activityInput').value;
+      const imageUrl = document.getElementById('generatedImage')?.src || null;
+      const user = await supabase.auth.getUser();
+      const user_id = user?.data?.user?.id;
+  
+      if (!mood || !imageUrl || !user_id) {
+        alert('Please log in, generate an image, and describe your mood first.');
+        return;
+      }
+  
+      const { error } = await supabase
+        .from('mia_logs')
+        .insert([
+          {
+            user_id,
+            mood_text: mood,
+            image_url: imageUrl,
+          },
+        ]);
+  
+      if (error) {
+        alert('Failed to save mood log.');
+        console.error(error);
+      } else {
+        alert('Mood saved!');
+      }
+    });
+  </script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const moodHistory = document.getElementById('moodHistory');
+      moodHistory.innerHTML = ''; // Clear old content
+  
+      const { data: userData } = await supabase.auth.getUser();
+      const user_id = userData?.user?.id;
+  
+      if (!user_id) {
+        moodHistory.innerHTML = '<p style="color: #f55;">Please log in to see your mood history.</p>';
+        return;
+      }
+  
+      const { data, error } = await supabase
+        .from('mia_logs')
+        .select('created_at, mood_text, image_url')
+        .eq('user_id', user_id)
+        .order('created_at', { ascending: false });
+  
+      if (error) {
+        console.error(error);
+        moodHistory.innerHTML = '<p style="color: #f55;">Failed to fetch</p>';
+        return;
+      }
+  
+      if (!data || data.length === 0) {
+        moodHistory.innerHTML = '<p>No mood history yet.</p>';
+        return;
+      }
+  
+      data.forEach(entry => {
+        const wrapper = document.createElement('div');
+        wrapper.style.display = 'flex';
+        wrapper.style.alignItems = 'center';
+        wrapper.style.marginBottom = '12px';
+  
+        const thumb = document.createElement('img');
+        thumb.src = entry.image_url;
+        thumb.alt = 'Mood Image';
+        thumb.style.width = '40px';
+        thumb.style.height = '40px';
+        thumb.style.objectFit = 'cover';
+        thumb.style.border = '1px solid #0ff';
+        thumb.style.marginRight = '8px';
+  
+        const text = document.createElement('span');
+        text.style.color = '#0ff';
+        text.style.flexGrow = '1';
+        text.textContent = `${new Date(entry.created_at).toLocaleString()}: ${entry.mood_text}`;
+  
+        wrapper.appendChild(thumb);
+        wrapper.appendChild(text);
+        moodHistory.appendChild(wrapper);
+      });
+    });
+  </script>
 
-        // DOM Elements
-        const ledDisplay = document.getElementById('ledDisplay');
-        const displayText = ledDisplay.querySelector('.display-text');
-        const timeCounter = document.getElementById('timeCounter');
-        const audioPlayer = document.getElementById('audioPlayer');
-        const modeButtons = {
-            focus: document.getElementById('focusMode'),
-            relax: document.getElementById('relaxMode'),
-            tinnitus: document.getElementById('tinnitusMode'),
-            sleep: document.getElementById('sleepMode')
-        };
-        const timerButtons = {
-            15: document.getElementById('timer15'),
-            30: document.getElementById('timer30'),
-            45: document.getElementById('timer45'),
-            60: document.getElementById('timer60')
-        };
-        const controlButtons = {
-            playPause: document.getElementById('playPause'),
-            stop: document.getElementById('stop'),
-            fastReverse: document.getElementById('fastReverse'),
-            fastForward: document.getElementById('fastForward')
-        };
+  <script>
+    const startVoiceButton = document.getElementById('startVoice');
+    const styleSelect = document.getElementById('styleSelect');
+    const generateImageButton = document.getElementById('generateImage');
+    const saveButton = document.getElementById('save');
+    const clearButton = document.getElementById('clear');
+    const synthcalmHomeButton = document.getElementById('synthcalmHome');
+    const promptButton = document.getElementById('promptButton');
+    const thinkingDots = document.getElementById('thinking');
+    const activityInput = document.getElementById('activityInput');
+    const generatedImage = document.getElementById('generatedImage');
+    const currentTime = document.getElementById('currentTime');
+    const countdownTimer = document.getElementById('countdownTimer');
+    const waveformCanvas = document.getElementById('waveform');
+    const waveformCtx = waveformCanvas.getContext('2d');
+    const recordingLight = document.getElementById('recordingLight');
 
-        // State Variables
-        let isPlaying = false;
-        let activeMode = null;
-        let currentTrackIndex = 0;
-        let activeTimer = null;
-        let timerTimeout = null;
-        let tickerTimeout = null;
-        let messageInterval = null;
-        let currentTrackName = '';
-        let countdownInterval = null;
-        let scrollAnimationFrame = null;
+    let isRecording = false;
+    let selectedStyle = null;
+    let recognition;
+    let audioContext;
+    let analyser;
+    let dataArray;
+    let animationFrameId;
+    let currentPrompt = '';
+    let recordingTimeout;
+    let countdownInterval;
+    let finalTranscript = '';
+    let timeLeft = 60;
 
-        // Mantras and Quotes for Tinnitus Mode
-        const mantras = [
-            "FOCUS HERE. LET THE SOUND FADE.",
-            "STAY HERE. IGNORE THE RINGING.",
-            "LOOK HERE. KEEP FOCUSED HERE.",
-            "LISTEN CLOSE. FORGET THE NOISE.",
-            "STAY CALM. LET IT FADE AWAY.",
-            "FOCUS NOW. THE RINGING FADES.",
-            "KEEP HERE. NOISE DISAPPEARS.",
-            "STARE HERE. SOUND FADES OUT.",
-            "FOCUS DEEP. IGNORE THE RING.",
-            "STAY STILL. LET IT FADE OUT.",
-            "LOOK NOW. FORGET THE SOUND.",
-            "KEEP FOCUSED. NOISE IS GONE.",
-            "STAY HERE. RINGING FADES NOW.",
-            "FOCUS HERE. SOUND IS FADING.",
-            "LISTEN HERE. NOISE FADES OUT.",
-            "STAY CALM. IGNORE THE RING.",
-            "FOCUS NOW. LET IT FADE AWAY.",
-            "KEEP HERE. THE SOUND FADES.",
-            "LOOK HERE. RINGING IS GONE.",
-            "STAY FOCUSED. NOISE FADES OUT.",
-            "BREATHE DEEP. LET IT FADE.",
-            "STAY PRESENT. NOISE FADES NOW.",
-            "FOCUS HERE. RINGING IS GONE.",
-            "LISTEN SOFT. FORGET THE RING.",
-            "KEEP CALM. SOUND FADES OUT.",
-            "STARE HERE. NOISE IS GONE.",
-            "FOCUS NOW. LET IT SLIP AWAY.",
-            "STAY STILL. RINGING FADES OUT.",
-            "LOOK HERE. SOUND IS GONE.",
-            "KEEP FOCUSED. LET IT FADE.",
-            "STAY HERE. NOISE FADES AWAY.",
-            "FOCUS DEEP. RINGING IS GONE.",
-            "LISTEN CLOSE. SOUND FADES NOW.",
-            "STAY CALM. FORGET THE NOISE.",
-            "FOCUS HERE. LET IT FADE OUT.",
-            "KEEP HERE. RINGING FADES NOW.",
-            "STARE HERE. NOISE FADES OUT.",
-            "FOCUS NOW. SOUND IS FADING.",
-            "STAY STILL. LET THE NOISE GO.",
-            "LOOK HERE. RINGING FADES AWAY.",
-            "KEEP FOCUSED. NOISE FADES OUT.",
-            "STAY HERE. SOUND FADES NOW.",
-            "FOCUS DEEP. LET IT FADE AWAY.",
-            "LISTEN SOFT. RINGING IS GONE.",
-            "STAY CALM. NOISE FADES OUT.",
-            "FOCUS HERE. SOUND FADES AWAY.",
-            "KEEP HERE. LET IT FADE OUT.",
-            "STARE HERE. RINGING FADES NOW.",
-            "FOCUS NOW. NOISE IS GONE.",
-            "STAY STILL. SOUND FADES OUT.",
-            "LOOK HERE. LET IT FADE AWAY.",
-            "KEEP FOCUSED. RINGING FADES OUT.",
-            "STAY HERE. NOISE FADES NOW.",
-            "FOCUS DEEP. SOUND IS GONE.",
-            "LISTEN CLOSE. LET IT FADE OUT.",
-            "STAY CALM. RINGING FADES AWAY.",
-            "FOCUS HERE. NOISE FADES OUT.",
-            "KEEP HERE. SOUND FADES NOW.",
-            "STARE HERE. LET IT FADE AWAY.",
-            "FOCUS NOW. RINGING IS GONE.",
-            "STAY STILL. NOISE FADES OUT.",
-            "LOOK HERE. SOUND FADES AWAY.",
-            "KEEP FOCUSED. LET IT FADE OUT.",
-            "STAY HERE. RINGING FADES NOW.",
-            "FOCUS DEEP. NOISE IS GONE.",
-            "LISTEN SOFT. SOUND FADES OUT.",
-            "STAY CALM. LET IT FADE AWAY.",
-            "FOCUS HERE. RINGING FADES OUT.",
-            "KEEP HERE. NOISE FADES NOW.",
-            "STARE HERE. SOUND FADES AWAY.",
-            "FOCUS NOW. LET IT FADE OUT.",
-            "STAY STILL. RINGING FADES AWAY.",
-            "LOOK HERE. NOISE FADES OUT.",
-            "KEEP FOCUSED. NOISE FADES NOW.",
-            "STAY HERE. SOUND FADES AWAY.",
-            "FOCUS DEEP. LET IT FADE OUT.",
-            "LISTEN CLOSE. NOISE FADES NOW.",
-            "STAY CALM. RINGING FADES OUT.",
-            "FOCUS HERE. NOISE FADES AWAY.",
-            "KEEP HERE. SOUND FADES OUT.",
-            "STARE HERE. LET IT FADE AWAY.",
-            "FOCUS NOW. RINGING FADES NOW.",
-            "STAY STILL. SOUND FADES AWAY.",
-            "LOOK HERE. LET IT FADE OUT.",
-            "KEEP FOCUSED. NOISE FADES NOW.",
-            "STAY HERE. NOISE FADES OUT.",
-            "FOCUS DEEP. SOUND FADES AWAY.",
-            "LISTEN CLOSE. LET IT FADE NOW.",
-            "STAY CALM. RINGING FADES OUT.",
-            "FOCUS HERE. NOISE FADES AWAY.",
-            "KEEP HERE. SOUND FADES OUT.",
-            "STARE HERE. LET IT FADE AWAY.",
-            "FOCUS NOW. NOISE FADES NOW.",
-            "STAY STILL. SOUND FADES AWAY.",
-            "LOOK HERE. LET IT FADE OUT.",
-            "KEEP FOCUSED. NOISE FADES NOW.",
-            "STAY HERE. NOISE FADES OUT.",
-            "FOCUS DEEP. SOUND FADES AWAY.",
-            "LISTEN CLOSE. LET IT FADE NOW.",
-            "STAY CALM. LET IT FADE OUT."
-        ];
+    // List of 50 therapeutically-oriented prompts
+    const therapeuticPrompts = [
+      "What small goal can you achieve today?",
+      "Describe a place where you feel completely at peace.",
+      "What made you smile recently?",
+      "Imagine a safe space—what does it look like?",
+      "What are you grateful for right now?",
+      "How can you show yourself kindness today?",
+      "Describe a moment when you felt really proud of yourself.",
+      "What’s a challenge you’ve overcome recently?",
+      "Imagine a calming scene—what do you see, hear, and feel?",
+      "What’s one thing you love about yourself?",
+      "Describe a happy memory from your childhood.",
+      "What’s a dream you’d love to make come true?",
+      "How do you feel when you’re surrounded by nature?",
+      "What’s a song that always lifts your spirits?",
+      "Imagine a perfect day—what happens?",
+      "What’s something you’re looking forward to?",
+      "Describe a person who makes you feel supported.",
+      "What’s a hobby that brings you joy?",
+      "How do you feel when you’re by the ocean?",
+      "What’s a small act of kindness you can do today?",
+      "Describe a time when you felt really understood.",
+      "What’s a color that makes you feel calm?",
+      "Imagine a cozy space—what’s in it?",
+      "What’s a goal you’d like to set for this week?",
+      "Describe a moment when you felt truly relaxed.",
+      "What’s a book or movie that inspires you?",
+      "How do you feel when you’re stargazing?",
+      "What’s a scent that brings back happy memories?",
+      "Describe a time when you helped someone.",
+      "What’s a place you’d love to visit someday?",
+      "How do you feel when you’re creating something?",
+      "What’s a lesson you’ve learned recently?",
+      "Describe a moment when you felt strong.",
+      "What’s a food that makes you feel comforted?",
+      "Imagine a peaceful garden—what’s growing there?",
+      "What’s a quote that motivates you?",
+      "How do you feel when you’re with your favorite person?",
+      "What’s a memory that makes you laugh?",
+      "Describe a time when you felt really connected to someone.",
+      "What’s a sound that soothes you?",
+      "Imagine a warm, sunny day—what are you doing?",
+      "What’s a skill you’d love to learn?",
+      "Describe a time when you felt at ease.",
+      "What’s a place that feels like home to you?",
+      "How do you feel when you’re dancing?",
+      "What’s a tradition that brings you joy?",
+      "Describe a moment when you felt hopeful.",
+      "What’s a texture that feels comforting to you?",
+      "Imagine a magical forest—what do you discover?",
+      "What’s a word that describes how you want to feel today?",
+      "Describe a time when you felt truly seen."
+    ];
 
-        const quotes = [
-            `"THE MOVING FINGER WRITES AND MOVES ON." - Omar Khayyam, Rubaiyat, c. 1120 CE`,
-            `"LIFE MOVES FORWARD. DO NOT DWELL." - Omar Khayyam, Rubaiyat, c. 1120 CE`,
-            `"BE HAPPY FOR THIS MOMENT IS YOUR LIFE." - Omar Khayyam, Rubaiyat, c. 1120 CE`,
-            `"FIND JOY NOW. THIS MOMENT MATTERS." - Omar Khayyam, Rubaiyat, c. 1120 CE`,
-            `"A LOAF OF BREAD A JUG OF WINE AND YOU." - Omar Khayyam, Rubaiyat, c. 1120 CE`,
-            `"SIMPLE PLEASURES BRING TRUE HAPPINESS." - Omar Khayyam, Rubaiyat, c. 1120 CE`,
-            `"THE WORLD IS BUT A MOMENTARY DREAM." - Omar Khayyam, Rubaiyat, c. 1120 CE`,
-            `"LIFE IS FLEETING. LET WORRIES FADE." - Omar Khayyam, Rubaiyat, c. 1120 CE`,
-            `"DRINK FOR YOU KNOW NOT WHENCE YOU CAME." - Omar Khayyam, Rubaiyat, c. 1120 CE`,
-            `"LIVE FULLY. THE PAST IS UNKNOWN." - Omar Khayyam, Rubaiyat, c. 1120 CE`,
-            `"BEYOND IDEAS OF RIGHT AND WRONG A FIELD." - Jalal ad-Din Rumi, Masnavi, c. 1270 CE`,
-            `"THE WOUND IS WHERE THE LIGHT ENTERS YOU." - Jalal ad-Din Rumi, Masnavi, c. 1270 CE`,
-            `"SILENCE IS THE LANGUAGE OF THE DIVINE." - Jalal ad-Din Rumi, Masnavi, c. 1270 CE`,
-            `"THE HEART IS A THOUSAND STRINGED LUTE." - Khwaja Shams-ud-Din Hafiz, Divan, c. 1370 CE`,
-            `"EVEN AFTER ALL THIS TIME THE SUN STAYS." - Khwaja Shams-ud-Din Hafiz, Divan, c. 1370 CE`,
-            `"FEAR IS THE CHEAPEST ROOM IN THE HOUSE." - Khwaja Shams-ud-Din Hafiz, Divan, c. 1370 CE`,
-            `"A GARDEN IS A DELIGHT TO THE EYE." - Saadi Shirazi, Gulistan, c. 1258 CE`,
-            `"PATIENCE IS THE KEY TO ALL RELIEF." - Saadi Shirazi, Gulistan, c. 1258 CE`,
-            `"THE SOUL IS A BIRD OF THE SACRED." - Farid ud-Din Attar, The Conference of the Birds, c. 1177 CE`,
-            `"TRAVEL THE PATH OF LOVE ALONE." - Farid ud-Din Attar, The Conference of the Birds, c. 1177 CE`
-        ];
+    // Web Speech API Setup
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      console.error('Speech Recognition API not supported.');
+      alert('Speech Recognition is not supported in this browser. Please use Chrome or Edge.');
+    } else {
+      recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
 
-        // Playlists
-        const playlists = {
-            focus: [
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/FOCUS/a-long-way-166385.mp3", name: "A Long Way" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/FOCUS/atmospheric-ambience-background_maven-11492.mp3", name: "Atmospheric Ambience Background" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/FOCUS/atmospheric-lo-fi-dreamy-lounge-music-259873.mp3", name: "Atmospheric Lo-Fi Dreamy Lounge" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/FOCUS/cosmic-ambient-236235.mp3", name: "Cosmic Ambient" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/FOCUS/focus+1-Ilariio.mp3", name: "Focus 1-Ilariio" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/FOCUS/follows-dark-ambient-194926.mp3", name: "Follows Dark Ambient" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/FOCUS/generative-digital-ambient-music-9416.mp3", name: "Generative Digital Ambient" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/FOCUS/lost-in-tokyo-242003.mp3", name: "Lost in Tokyo" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/FOCUS/nebula-space-clouds-9387.mp3", name: "Nebula Space Clouds" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/FOCUS/piano-dreamcloud-meditation-179215.mp3", name: "Piano Dreamcloud Meditation" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/FOCUS/space-atmospheric-background-124841+(1).mp3", name: "Space Atmospheric Background" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/FOCUS/tokyo-219288.mp3", name: "Tokyo" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/FOCUS/voices-are-calling-atmospheric-ambient-with-vocal-225458+(1).mp3", name: "Voices Are Calling" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/FOCUS/zero-one-five-atmospheric-mix-283340.mp3", name: "Zero One Five Atmospheric Mix" }
-            ],
-            relax: [
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/RELAX/Neon+Reflections+At+Twilight_1743146881.mp3", name: "Neon Reflections At Twilight" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/RELAX/cold-fusion-reactor-dystopian-cinematic-ambient-music-238558.mp3", name: "Cold Fusion Reactor" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/RELAX/cursed-crypt-dark-ambience-230666.mp3", name: "Cursed Crypt Dark Ambience" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/RELAX/deep-space-ambient-meditation-172134.mp3", name: "Deep Space Ambient Meditation" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/RELAX/lost-boy-atmospheric-emotional-cinematic-orchestral-pop-music-277891.mp3", name: "Lost Boy" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/RELAX/perfect-beauty-191271.mp3", name: "Perfect Beauty" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/RELAX/relaxing-deep-space-ambient-189720.mp3", name: "Relaxing Deep Space Ambient" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/RELAX/soothing-meditation-315918.mp3", name: "Soothing Meditation" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/RELAX/space-atmospheric-background-124841.mp3", name: "Space Atmospheric Background" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/RELAX/the-obsidian-enigma-dystopian-cinematic-ambient-music-238556.mp3", name: "The Obsidian Enigma" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/RELAX/the-realization-ambient-piano-230860.mp3", name: "The Realization" }
-            ],
-            tinnitus: [
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/SNOW/10-minutes-spaceship-fantasy-ambient-for-relaxation-155043.mp3", name: "Spaceship Fantasy Ambient" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/SNOW/ambientwill-312101.mp3", name: "Ambient Will" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/SNOW/gruesome-gloom-dark-ambience-230661.mp3", name: "Gruesome Gloom Dark Ambience" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/SNOW/nostromo-atmospheric-294093.mp3", name: "Nostromo Atmospheric" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/SNOW/otherworldly-factory-149701.mp3", name: "Otherworldly Factory" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/SNOW/shadowed-catacombs-dark-ambience-230655.mp3", name: "Shadowed Catacombs Dark Ambience" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/SNOW/the-futuristic-ambience-everything-is-one-179395.mp3", name: "Futuristic Ambience" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/SNOW/zero-one-five-atmospheric-mix-283340.mp3", name: "Zero One Five Atmospheric Mix" }
-            ],
-            sleep: [
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/SLEEP/frequency-of-sleep-meditation-113050.mp3", name: "Frequency of Sleep Meditation" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/SLEEP/ghostly-groove-dark-ambience-230665.mp3", name: "Ghostly Groove Dark Ambience" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/SLEEP/last-place-on-earth-sad-dystopian-apocalypse-war-soundtrack-128885.mp3", name: "Last Place on Earth" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/SLEEP/music-for-sleep-song-of-the-sea-250856.mp3", name: "Song of the Sea" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/SLEEP/red-haze-dystopian-cinematic-ambient-music-238554.mp3", name: "Red Haze" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/SLEEP/sleep-music-vol15-195425.mp3", name: "Sleep Music Vol 15" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/SLEEP/sleep-music-vol16-195422.mp3", name: "Sleep Music Vol 16" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/SLEEP/sound-ambience-sonido-ambiente-68-15693.mp3", name: "Sound Ambience" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/SLEEP/sounds-for-meditation-and-mental-clarity-symphony-of-inner-peace-261838.mp3", name: "Symphony of Inner Peace" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/SLEEP/spa-ambient-10min-253179.mp3", name: "Spa Ambient 10min" },
-                { src: "https://f004.backblazeb2.com/file/rainplus1-files/SLEEP/the-waterfall-meditation-271046.mp3", name: "The Waterfall Meditation" }
-            ]
-        };
+      recognition.onstart = () => {
+        console.log('Speech recognition started');
+        isRecording = true;
+        activityInput.value = ''; // Clear prompt when recording starts
+        startVoiceButton.textContent = 'STOP VOICE';
+        startVoiceButton.classList.add('recording');
+        recordingLight.classList.add('active');
+        setupAudio();
+        timeLeft = 60;
+        countdownTimer.textContent = `00:${String(timeLeft).padStart(2, '0')}`;
+        countdownInterval = setInterval(() => {
+          timeLeft--;
+          countdownTimer.textContent = `00:${String(timeLeft).padStart(2, '0')}`;
+          if (timeLeft <= 0) {
+            stopRecording();
+          }
+        }, 1000);
+        recordingTimeout = setTimeout(() => {
+          stopRecording();
+        }, 60000);
+      };
 
-        // Utility Functions
-        function shuffleArray(array) {
-            for (let i = array.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [array[i], array[j]] = [array[j], array[i]];
-            }
-            return array;
+      recognition.onresult = (event) => {
+        let interimTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript + ' ';
+          } else {
+            interimTranscript = transcript;
+          }
         }
 
-        function resetPlayer() {
-            isPlaying = false;
-            activeMode = null;
-            currentTrackIndex = 0;
-            activeTimer = null;
-            if (timerTimeout) clearTimeout(timerTimeout);
-            if (tickerTimeout) clearTimeout(tickerTimeout);
-            if (messageInterval) clearTimeout(messageInterval);
-            if (countdownInterval) clearInterval(countdownInterval);
-            if (scrollAnimationFrame) cancelAnimationFrame(scrollAnimationFrame);
-            audioPlayer.pause();
-            audioPlayer.currentTime = 0;
-            updateTrackDisplay('OFF', false);
-            updateTimeCounter(0);
-            controlButtons.playPause.classList.remove('pause', 'pressed');
-            controlButtons.playPause.classList.add('play');
-            document.querySelectorAll('button').forEach(btn => btn.classList.remove('pressed'));
-            Object.values(timerButtons).forEach(btn => {
-                btn.disabled = true;
-                btn.style.cursor = 'not-allowed';
-            });
-            ledDisplay.classList.remove('tinnitus-mode');
+        activityInput.value = finalTranscript + interimTranscript;
+        currentPrompt = activityInput.value.trim();
+        activityInput.scrollTop = activityInput.scrollHeight;
+        console.log('Speech recognized:', activityInput.value);
+      };
+
+      recognition.onerror = (event) => {
+        console.error('Speech recognition error:', event.error);
+        alert(`Speech recognition error: ${event.error}. Please check microphone permissions.`);
+        stopRecording();
+      };
+
+      recognition.onend = () => {
+        console.log('Speech recognition ended');
+        if (isRecording) {
+          stopRecording();
         }
+      };
+    }
 
-        function updateTrackDisplay(text, animate = true, isHypnotic = false, isQuote = false) {
-            const upperText = String(text).toUpperCase();
-            if (scrollAnimationFrame) cancelAnimationFrame(scrollAnimationFrame);
-            displayText.classList.remove('static', 'quote');
-            displayText.textContent = upperText;
-            if (isQuote) {
-                displayText.classList.add('quote');
-            }
+    // Web Audio API for Waveform Visualization
+    async function setupAudio() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioContext.createMediaStreamSource(stream);
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 2048;
+        source.connect(analyser);
+        dataArray = new Uint8Array(analyser.frequencyBinCount);
+        drawWaveform();
+      } catch (err) {
+        console.error('Error accessing microphone:', err);
+        alert('Error accessing microphone: ' + err.message);
+      }
+    }
 
-            if (animate) {
-                const duration = isHypnotic ? text.length * 500 : (text.length * 400 + 4000);
-                scrollText(duration);
-                return duration;
-            } else {
-                displayText.classList.add('static');
-                displayText.style.left = '0';
-                return 0;
-            }
+    function drawWaveform() {
+      if (!isRecording) {
+        cancelAnimationFrame(animationFrameId);
+        waveformCtx.clearRect(0, 0, waveformCanvas.width, waveformCanvas.height);
+        return;
+      }
+
+      analyser.getByteTimeDomainData(dataArray);
+      waveformCtx.clearRect(0, 0, waveformCanvas.width, waveformCanvas.height);
+      waveformCtx.lineWidth = 2;
+      waveformCtx.strokeStyle = '#ffff00';
+      waveformCtx.beginPath();
+
+      const sliceWidth = waveformCanvas.width / dataArray.length;
+      let x = 0;
+
+      for (let i = 0; i < dataArray.length; i++) {
+        const v = dataArray[i] / 128.0;
+        const y = (v * waveformCanvas.height) / 2;
+        if (i === 0) waveformCtx.moveTo(x, y);
+        else waveformCtx.lineTo(x, y);
+        x += sliceWidth;
+      }
+
+      waveformCtx.lineTo(waveformCanvas.width, waveformCanvas.height / 2);
+      waveformCtx.stroke();
+      animationFrameId = requestAnimationFrame(drawWaveform);
+    }
+
+    function stopRecording() {
+      if (isRecording) {
+        isRecording = false;
+        recognition.stop();
+        clearTimeout(recordingTimeout);
+        clearInterval(countdownInterval);
+        countdownTimer.textContent = '00:60';
+        startVoiceButton.textContent = 'START VOICE';
+        startVoiceButton.classList.remove('recording');
+        recordingLight.classList.remove('active');
+        if (audioContext) {
+          audioContext.close();
+          audioContext = null;
         }
+        cancelAnimationFrame(animationFrameId);
+        waveformCtx.clearRect(0, 0, waveformCanvas.width, waveformCanvas.height);
+        styleSelect.classList.add('blink-yellow');
+      }
+    }
 
-        function scrollText(duration) {
-            if (scrollAnimationFrame) cancelAnimationFrame(scrollAnimationFrame);
-            const startTime = performance.now();
-            const displayWidth = ledDisplay.offsetWidth;
-            const textWidth = displayText.offsetWidth;
-            const totalDistance = displayWidth + textWidth;
+    // Reset all highlights
+    function resetHighlights() {
+      styleSelect.classList.remove('blink-yellow', 'highlight-yellow');
+      generateImageButton.classList.remove('blink-yellow', 'highlight-yellow');
+      saveButton.classList.remove('blink-yellow', 'highlight-yellow');
+      thinkingDots.classList.remove('highlight-yellow');
+      thinkingDots.style.display = 'none';
+    }
 
-            function animate(currentTime) {
-                const elapsed = currentTime - startTime;
-                const progress = Math.min(elapsed / duration, 1);
-                const position = 100 - (progress * (100 + (textWidth / displayWidth) * 100));
-                displayText.style.left = `${position}%`;
+    // Update Time Display (YYYY-MM-DD)
+    function updateTime() {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const time = now.toLocaleTimeString('en-US', { hour12: true });
+      currentTime.textContent = `${year}-${month}-${day} ${time}`;
+    }
+    updateTime();
+    setInterval(updateTime, 1000);
 
-                if (progress < 1) {
-                    scrollAnimationFrame = requestAnimationFrame(animate);
-                } else {
-                    displayText.style.left = '100%';
-                }
-            }
+    // Event Listeners
+    startVoiceButton.addEventListener('click', () => {
+      if (!SpeechRecognition) return;
+      if (!isRecording) {
+        finalTranscript = '';
+        recognition.start();
+      } else {
+        stopRecording();
+      }
+    });
 
-            scrollAnimationFrame = requestAnimationFrame(animate);
-        }
+    promptButton.addEventListener('click', () => {
+      const randomPrompt = therapeuticPrompts[Math.floor(Math.random() * therapeuticPrompts.length)];
+      activityInput.value = randomPrompt;
+      finalTranscript = randomPrompt;
+    });
 
-        function startMessageCycle() {
-            if (messageInterval) clearTimeout(messageInterval);
-            ledDisplay.classList.add('tinnitus-mode');
+    styleSelect.addEventListener('change', () => {
+      selectedStyle = styleSelect.value;
+      if (selectedStyle) {
+        styleSelect.classList.remove('blink-yellow');
+        generateImageButton.classList.add('blink-yellow');
+      }
+    });
 
-            const shuffledMantras = shuffleArray([...mantras]);
-            const shuffledQuotes = shuffleArray([...quotes]);
+    generateImageButton.addEventListener('click', async () => {
+      if (!activityInput.value || !selectedStyle) {
+        alert('Please provide a prompt and select a style.');
+        return;
+      }
 
-            let mantraIndex = 0;
-            let quoteIndex = 0;
-            let isMantraTurn = true;
+      generateImageButton.classList.remove('blink-yellow');
+      generateImageButton.classList.add('highlight-yellow');
+      thinkingDots.classList.add('highlight-yellow');
+      thinkingDots.style.display = 'block';
+      generatedImage.style.display = 'none';
 
-            const displayNextMessage = () => {
-                if (isMantraTurn) {
-                    const scrollDuration = updateTrackDisplay(shuffledMantras[mantraIndex], true, true, false);
-                    mantraIndex = (mantraIndex + 1) % shuffledMantras.length;
-                    isMantraTurn = false;
-                    messageInterval = setTimeout(displayNextMessage, scrollDuration + 3000);
-                } else {
-                    const scrollDuration = updateTrackDisplay(shuffledQuotes[quoteIndex], true, true, true);
-                    quoteIndex = (quoteIndex + 1) % shuffledQuotes.length;
-                    isMantraTurn = true;
-                    messageInterval = setTimeout(displayNextMessage, scrollDuration);
-                }
-            };
-
-            displayNextMessage();
-        }
-
-        function startTickerCycle() {
-            if (!isPlaying || !currentTrackName || activeMode === 'tinnitus') return;
-            if (tickerTimeout) clearTimeout(tickerTimeout);
-
-            const singleScrollDuration = updateTrackDisplay(currentTrackName, true, false);
-            tickerTimeout = setTimeout(() => {
-                const secondScrollDuration = updateTrackDisplay(currentTrackName, true, false);
-                tickerTimeout = setTimeout(() => {
-                    updateTrackDisplay('PLAYING', false);
-                    tickerTimeout = setTimeout(() => {
-                        startTickerCycle();
-                    }, 180000);
-                }, secondScrollDuration);
-            }, singleScrollDuration);
-        }
-
-        function formatTime(seconds) {
-            const hours = Math.floor(seconds / 3600);
-            const minutes = Math.floor((seconds % 3600) / 60);
-            const secs = Math.floor(seconds % 60);
-            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-        }
-
-        function updateTimeCounter(remainingTime) {
-            timeCounter.textContent = formatTime(remainingTime);
-        }
-
-        function startCountdown() {
-            if (countdownInterval) clearInterval(countdownInterval);
-            countdownInterval = setInterval(() => {
-                if (!isPlaying) return;
-                const remainingTime = Math.max(0, audioPlayer.duration - audioPlayer.currentTime);
-                updateTimeCounter(remainingTime);
-                if (remainingTime <= 0) {
-                    clearInterval(countdownInterval);
-                }
-            }, 1000);
-        }
-
-        function setMode(mode, button) {
-            if (isPlaying) resetPlayer();
-            activeMode = mode;
-            const playlistLength = playlists[mode].length;
-            currentTrackIndex = Math.floor(Math.random() * playlistLength);
-            Object.values(modeButtons).forEach(btn => btn.classList.remove('pressed'));
-            button.classList.add('pressed');
-            const track = playlists[mode][currentTrackIndex];
-            audioPlayer.src = track.src;
-            currentTrackName = track.name;
-
-            if (mode === 'tinnitus') {
-                updateTrackDisplay('TINNITUS MODE', false);
-            } else {
-                updateTrackDisplay(track.name, false);
-            }
-
-            if (mode === 'sleep') {
-                Object.values(timerButtons).forEach(btn => {
-                    btn.disabled = false;
-                    btn.style.cursor = 'pointer';
-                });
-            } else {
-                Object.values(timerButtons).forEach(btn => {
-                    btn.disabled = true;
-                    btn.style.cursor = 'not-allowed';
-                });
-            }
-        }
-
-        function playTrack() {
-            audioPlayer.src = playlists[activeMode][currentTrackIndex].src;
-            audioPlayer.play().catch(err => console.error('Play error:', err));
-            currentTrackName = playlists[activeMode][currentTrackIndex].name;
-
-            if (activeMode === 'tinnitus') {
-                updateTrackDisplay('RELAX', false);
-                setTimeout(() => {
-                    if (isPlaying) {
-                        startMessageCycle();
-                    }
-                }, 1000);
-            } else {
-                startTickerCycle();
-            }
-
-            audioPlayer.onloadedmetadata = () => {
-                updateTimeCounter(audioPlayer.duration);
-                startCountdown();
-            };
-        }
-
-        function nextTrack() {
-            if (!activeMode) return;
-            const playlistLength = playlists[activeMode].length;
-            currentTrackIndex = (currentTrackIndex + 1) % playlistLength;
-            updateTrackDisplay('NEXT', false);
-            setTimeout(() => {
-                currentTrackName = playlists[activeMode][currentTrackIndex].name;
-                if (isPlaying) playTrack();
-            }, 500);
-        }
-
-        function previousTrack() {
-            if (!activeMode) return;
-            const playlistLength = playlists[activeMode].length;
-            currentTrackIndex = (currentTrackIndex - 1 + playlistLength) % playlistLength;
-            updateTrackDisplay('PREV', false);
-            setTimeout(() => {
-                currentTrackName = playlists[activeMode][currentTrackIndex].name;
-                if (isPlaying) playTrack();
-            }, 500);
-        }
-
-        function setTimer(minutes) {
-            if (activeTimer) {
-                timerButtons[activeTimer].classList.remove('pressed');
-            }
-            activeTimer = minutes;
-            timerButtons[minutes].classList.add('pressed');
-            if (timerTimeout) clearTimeout(timerTimeout);
-            timerTimeout = setTimeout(() => {
-                resetPlayer();
-                updateTrackDisplay('TIMER OFF', false);
-            }, minutes * 60 * 1000);
-        }
-
-        // Event Listeners
-        modeButtons.focus.addEventListener('click', () => setMode('focus', modeButtons.focus));
-        modeButtons.relax.addEventListener('click', () => setMode('relax', modeButtons.relax));
-        modeButtons.tinnitus.addEventListener('click', () => setMode('tinnitus', modeButtons.tinnitus));
-        modeButtons.sleep.addEventListener('click', () => setMode('sleep', modeButtons.sleep));
-
-        timerButtons[15].addEventListener('click', () => setTimer(15));
-        timerButtons[30].addEventListener('click', () => setTimer(30));
-        timerButtons[45].addEventListener('click', () => setTimer(45));
-        timerButtons[60].addEventListener('click', () => setTimer(60));
-
-        controlButtons.playPause.addEventListener('click', () => {
-            if (!activeMode) {
-                updateTrackDisplay('NO MODE', false);
-                return;
-            }
-            isPlaying = !isPlaying;
-            controlButtons.playPause.classList.toggle('play', !isPlaying);
-            controlButtons.playPause.classList.toggle('pause', isPlaying);
-            controlButtons.playPause.classList.toggle('pressed', isPlaying);
-            if (isPlaying) {
-                playTrack();
-            } else {
-                audioPlayer.pause();
-                if (tickerTimeout) clearTimeout(tickerTimeout);
-                if (countdownInterval) clearInterval(countdownInterval);
-                updateTrackDisplay('PAUSED', false);
-                updateTimeCounter(audioPlayer.duration - audioPlayer.currentTime);
-            }
+      try {
+        const styledPrompt = `${activityInput.value}, rendered in ${selectedStyle} style`;
+        const response = await fetch('https://synthcalm-a2n7.onrender.com/generate-image', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            prompt: styledPrompt,
+            style: selectedStyle,
+          }),
         });
 
-        controlButtons.stop.addEventListener('click', () => {
-            resetPlayer();
-        });
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to generate image');
+        }
 
-        controlButtons.fastReverse.addEventListener('click', () => {
-            if (activeMode) {
-                previousTrack();
-                controlButtons.fastReverse.classList.add('pressed');
-                setTimeout(() => controlButtons.fastReverse.classList.remove('pressed'), 200);
-            }
-        });
+        const data = await response.json();
 
-        controlButtons.fastForward.addEventListener('click', () => {
-            if (activeMode) {
-                nextTrack();
-                controlButtons.fastForward.classList.add('pressed');
-                setTimeout(() => controlButtons.fastForward.classList.remove('pressed'), 200);
-            }
-        });
+        if (data.image) {
+          generatedImage.src = data.image;
+          generatedImage.style.display = 'block';
+          currentPrompt = activityInput.value;
 
-        audioPlayer.addEventListener('ended', () => {
-            if (activeMode) {
-                nextTrack();
-                if (isPlaying) playTrack();
-            }
-        });
+          resetHighlights();
+          saveButton.classList.add('blink-yellow');
+        } else {
+          throw new Error('No image returned from server');
+        }
+      } catch (error) {
+        console.error('Error generating image:', error);
+        alert('Failed to generate image: ' + error.message);
+        resetHighlights();
+      }
+    });
 
-        window.addEventListener('load', () => {
-            resetPlayer();
-        });
-    </script>
+    saveButton.addEventListener('click', () => {
+      if (!generatedImage.src || generatedImage.style.display === 'none') {
+        alert('No image to save. Generate an image first.');
+        return;
+      }
+
+      const moodHistory = document.getElementById('moodHistory');
+      const entry = document.createElement('div');
+      entry.className = 'history-entry';
+      const img = document.createElement('img');
+      img.src = generatedImage.src;
+      img.alt = 'Saved Image';
+      const text = document.createElement('span');
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      text.textContent = `${year}-${month}-${day} ${now.toLocaleTimeString('en-US', { hour12: true })}: ${currentPrompt}`;
+      entry.appendChild(img);
+      entry.appendChild(text);
+      moodHistory.appendChild(entry);
+
+      console.log('Saved to Mood History:', { prompt: currentPrompt, image: generatedImage.src });
+      resetHighlights();
+      generatedImage.style.display = 'none';
+    });
+
+    clearButton.addEventListener('click', () => {
+      activityInput.value = '';
+      finalTranscript = '';
+      currentPrompt = '';
+      selectedStyle = null;
+      styleSelect.value = '';
+      resetHighlights();
+      generatedImage.style.display = 'none';
+    });
+
+    synthcalmHomeButton.addEventListener('click', () => {
+      alert('Returning to SynthCalm Home...');
+      resetHighlights();
+    });
+  </script>
 </body>
 </html>
