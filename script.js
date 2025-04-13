@@ -1,177 +1,148 @@
-const activityInput = document.getElementById("activityInput");
-const styleSelect = document.getElementById("styleSelect");
-const startVoiceButton = document.getElementById("startVoice");
-const generateButton = document.getElementById("generate");
-const saveButton = document.getElementById("saveImage");
-const redoButton = document.getElementById("redo");
-const countdownDisplay = document.getElementById("countdownDisplay");
-const dateTimeDisplay = document.getElementById("dateTimeDisplay");
-const waveform = document.getElementById("waveform");
-const waveformCtx = waveform.getContext("2d");
-const generatedImage = document.getElementById("generatedImage");
-const moodHistory = document.getElementById("moodHistory");
+// Updated script.js — replaces deprecated ScriptProcessorNode with AudioWorkletNode, and enables real DALL·E image generation.
 
-let isRecording = false;
-let stream, audioContext, analyser, dataArray, source, animationId;
-let countdownInterval, secondsLeft = 60;
-let socket;
+window.addEventListener('DOMContentLoaded', async () => {
+  const micBtn = document.getElementById('startVoice');
+  const redoBtn = document.getElementById('redo');
+  const generateBtn = document.getElementById('generate');
+  const saveBtn = document.getElementById('saveImage');
+  const styleSelect = document.getElementById('styleSelect');
+  const moodInput = document.getElementById('activityInput');
+  const imageEl = document.getElementById('generatedImage');
+  const moodHistoryEl = document.getElementById('moodHistory');
+  const dateEl = document.getElementById('current-date');
+  const timeEl = document.getElementById('current-time');
+  const timerEl = document.getElementById('countdown-timer');
+  const canvas = document.getElementById('waveform');
+  const ctx = canvas.getContext('2d');
 
-// Show date and time
-setInterval(() => {
-  const now = new Date();
-  dateTimeDisplay.innerHTML =
-    now.getFullYear() +
-    "/" +
-    (now.getMonth() + 1).toString().padStart(2, "0") +
-    "/" +
-    now.getDate().toString().padStart(2, "0") +
-    "<br>" +
-    now.toTimeString().split(" ")[0];
-}, 1000);
+  let stream, audioContext, workletNode, source;
+  let startTime = Date.now();
 
-// Countdown
-function startCountdown() {
-  secondsLeft = 60;
-  countdownDisplay.textContent = "01:00";
-  countdownInterval = setInterval(() => {
-    secondsLeft--;
-    const min = Math.floor(secondsLeft / 60)
-      .toString()
-      .padStart(2, "0");
-    const sec = (secondsLeft % 60).toString().padStart(2, "0");
-    countdownDisplay.textContent = `${min}:${sec}`;
-    if (secondsLeft <= 0) {
-      stopRecording();
-    }
-  }, 1000);
-}
-
-// Waveform
-function drawWaveform() {
-  analyser.getByteTimeDomainData(dataArray);
-  waveformCtx.fillStyle = "#000";
-  waveformCtx.fillRect(0, 0, waveform.width, waveform.height);
-
-  waveformCtx.lineWidth = 2;
-  waveformCtx.strokeStyle = "#0ff";
-  waveformCtx.beginPath();
-
-  const sliceWidth = waveform.width / analyser.frequencyBinCount;
-  let x = 0;
-  for (let i = 0; i < analyser.frequencyBinCount; i++) {
-    const v = dataArray[i] / 128.0;
-    const y = (v * waveform.height) / 2;
-    if (i === 0) waveformCtx.moveTo(x, y);
-    else waveformCtx.lineTo(x, y);
-    x += sliceWidth;
+  function updateClock() {
+    const now = new Date();
+    dateEl.textContent = now.toISOString().split('T')[0];
+    timeEl.textContent = now.toTimeString().split(' ')[0];
+    const remaining = Math.max(0, 3600 - Math.floor((Date.now() - startTime) / 1000));
+    timerEl.textContent = `Session Ends In: ${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, '0')}`;
   }
-  waveformCtx.stroke();
-  animationId = requestAnimationFrame(drawWaveform);
-}
+  setInterval(updateClock, 1000);
+  updateClock();
 
-async function startRecording() {
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    audioContext = new AudioContext();
-    source = audioContext.createMediaStreamSource(stream);
-    analyser = audioContext.createAnalyser();
-    analyser.fftSize = 2048;
-    dataArray = new Uint8Array(analyser.frequencyBinCount);
-    source.connect(analyser);
-    drawWaveform();
-
-    const res = await fetch("https://mood-into-art-backend.onrender.com/assemblyai-token");
-    const { token } = await res.json();
-
-    socket = new WebSocket(`wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000`, []);
-
-    socket.onopen = () => {
-      const recognitionStream = audioContext.createScriptProcessor(4096, 1, 1);
-      source.connect(recognitionStream);
-      recognitionStream.connect(audioContext.destination);
-
-      recognitionStream.onaudioprocess = (e) => {
-        if (socket.readyState === WebSocket.OPEN) {
-          const floatData = e.inputBuffer.getChannelData(0);
-          const int16Data = new Int16Array(floatData.length);
-          for (let i = 0; i < floatData.length; i++) {
-            int16Data[i] = Math.max(-32768, Math.min(32767, floatData[i] * 32767));
+  async function startRecording() {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioContext = new AudioContext({ sampleRate: 16000 });
+      await audioContext.audioWorklet.addModule('data:application/javascript;base64,' + btoa(`
+        class PCMProcessor extends AudioWorkletProcessor {
+          process(inputs) {
+            const input = inputs[0][0];
+            if (!input) return true;
+            const int16 = new Int16Array(input.length);
+            for (let i = 0; i < input.length; i++) {
+              int16[i] = Math.max(-1, Math.min(1, input[i])) * 0x7fff;
+            }
+            this.port.postMessage(int16.buffer);
+            return true;
           }
-          socket.send(int16Data.buffer);
         }
+        registerProcessor('pcm-processor', PCMProcessor);
+      `));
+
+      source = audioContext.createMediaStreamSource(stream);
+      workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
+
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 2048;
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      source.connect(analyser);
+      drawWaveform(analyser, dataArray);
+
+      source.connect(workletNode).connect(audioContext.destination);
+
+      // Connect to AssemblyAI WebSocket (assumes secure token flow from backend)
+      const tokenRes = await fetch('https://roy-chatbo-backend.onrender.com/api/assembly/token');
+      const { token } = await tokenRes.json();
+      const socket = new WebSocket(`wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000`);
+      socket.binaryType = 'arraybuffer';
+
+      socket.onopen = () => socket.send(JSON.stringify({ token }));
+      socket.onmessage = (msg) => {
+        const { text } = JSON.parse(msg.data);
+        if (text) moodInput.value = text;
       };
-    };
 
-    socket.onmessage = (msg) => {
-      const res = JSON.parse(msg.data);
-      if (res.text) {
-        activityInput.value = res.text;
-      }
-    };
+      workletNode.port.onmessage = (e) => {
+        if (socket.readyState === WebSocket.OPEN) socket.send(e.data);
+      };
 
-    isRecording = true;
-    startVoiceButton.textContent = "Stop Voice";
-    startCountdown();
-  } catch (err) {
-    alert("Microphone access denied or error: " + err.message);
-  }
-}
-
-function stopRecording() {
-  if (animationId) cancelAnimationFrame(animationId);
-  if (socket) socket.close();
-  if (stream) stream.getTracks().forEach((track) => track.stop());
-  if (audioContext) audioContext.close();
-
-  isRecording = false;
-  startVoiceButton.textContent = "Start Voice";
-  clearInterval(countdownInterval);
-}
-
-// Event Listeners
-startVoiceButton.addEventListener("click", () => {
-  isRecording ? stopRecording() : startRecording();
-});
-
-generateButton.addEventListener("click", () => {
-  const mood = activityInput.value.trim();
-  const style = styleSelect.value;
-  if (!mood || style === "none") {
-    alert("Please describe your mood and select a style.");
-    return;
+      micBtn.disabled = true;
+    } catch (e) {
+      console.error(e);
+    }
   }
 
-  const prompt = `${mood} (${styleSelect.options[styleSelect.selectedIndex].text})`;
-  const timestamp = new Date().toLocaleString();
-
-  const entry = document.createElement("div");
-  entry.className = "history-entry";
-  entry.innerHTML = `
-    <div class="timestamp">${timestamp}</div>
-    <div class="entry-content" contenteditable="true">${prompt}</div>
-    <div class="entry-actions">
-      <button class="entry-btn delete-btn">✕</button>
-    </div>
-  `;
-  entry.querySelector(".delete-btn").onclick = () => entry.remove();
-  moodHistory.prepend(entry);
-
-  generatedImage.src = "https://via.placeholder.com/1080x1080.png?text=Generated+Image";
-  generatedImage.style.display = "block";
-});
-
-redoButton.addEventListener("click", () => {
-  activityInput.value = "";
-  styleSelect.value = "none";
-  generatedImage.style.display = "none";
-});
-
-saveButton.addEventListener("click", () => {
-  const image = generatedImage;
-  if (image.src) {
-    const link = document.createElement("a");
-    link.href = image.src;
-    link.download = "mood-art.png";
-    link.click();
+  function drawWaveform(analyser, dataArray) {
+    requestAnimationFrame(() => drawWaveform(analyser, dataArray));
+    analyser.getByteTimeDomainData(dataArray);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = 'yellow';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    const sliceWidth = canvas.width / dataArray.length;
+    let x = 0;
+    for (let i = 0; i < dataArray.length; i++) {
+      const y = (dataArray[i] / 128.0) * canvas.height / 2;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      x += sliceWidth;
+    }
+    ctx.lineTo(canvas.width, canvas.height / 2);
+    ctx.stroke();
   }
+
+  async function generateImage(prompt, style) {
+    try {
+      const res = await fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer YOUR_OPENAI_API_KEY'
+        },
+        body: JSON.stringify({
+          prompt: `${prompt}, in the style of ${style}`,
+          n: 1,
+          size: '512x512'
+        })
+      });
+      const data = await res.json();
+      imageEl.src = data.data[0].url;
+      saveBtn.disabled = false;
+    } catch (e) {
+      console.error('Image generation failed:', e);
+    }
+  }
+
+  generateBtn.addEventListener('click', () => {
+    const prompt = moodInput.value.trim();
+    const style = styleSelect.value;
+    if (!prompt || !style) return;
+    generateImage(prompt, style);
+  });
+
+  redoBtn.addEventListener('click', () => {
+    moodInput.value = '';
+    imageEl.src = '';
+    saveBtn.disabled = true;
+  });
+
+  saveBtn.addEventListener('click', () => {
+    const moodText = moodInput.value.trim();
+    const timestamp = new Date().toISOString().replace('T', ' ').slice(0, 19);
+    const div = document.createElement('div');
+    div.textContent = `${timestamp}: ${moodText}`;
+    moodHistoryEl.appendChild(div);
+    redoBtn.click();
+  });
+
+  micBtn.addEventListener('click', startRecording);
 });
