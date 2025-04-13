@@ -1,203 +1,177 @@
-body {
-  font-family: 'Courier New', monospace;
-  margin: 0;
-  background: #000;
-  color: #0ff;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  flex-direction: column;
+const activityInput = document.getElementById("activityInput");
+const styleSelect = document.getElementById("styleSelect");
+const startVoiceButton = document.getElementById("startVoice");
+const generateButton = document.getElementById("generate");
+const saveButton = document.getElementById("saveImage");
+const redoButton = document.getElementById("redo");
+const countdownDisplay = document.getElementById("countdownDisplay");
+const dateTimeDisplay = document.getElementById("dateTimeDisplay");
+const waveform = document.getElementById("waveform");
+const waveformCtx = waveform.getContext("2d");
+const generatedImage = document.getElementById("generatedImage");
+const moodHistory = document.getElementById("moodHistory");
+
+let isRecording = false;
+let stream, audioContext, analyser, dataArray, source, animationId;
+let countdownInterval, secondsLeft = 60;
+let socket;
+
+// Show date and time
+setInterval(() => {
+  const now = new Date();
+  dateTimeDisplay.innerHTML =
+    now.getFullYear() +
+    "/" +
+    (now.getMonth() + 1).toString().padStart(2, "0") +
+    "/" +
+    now.getDate().toString().padStart(2, "0") +
+    "<br>" +
+    now.toTimeString().split(" ")[0];
+}, 1000);
+
+// Countdown
+function startCountdown() {
+  secondsLeft = 60;
+  countdownDisplay.textContent = "01:00";
+  countdownInterval = setInterval(() => {
+    secondsLeft--;
+    const min = Math.floor(secondsLeft / 60)
+      .toString()
+      .padStart(2, "0");
+    const sec = (secondsLeft % 60).toString().padStart(2, "0");
+    countdownDisplay.textContent = `${min}:${sec}`;
+    if (secondsLeft <= 0) {
+      stopRecording();
+    }
+  }, 1000);
 }
 
-.container {
-  width: 90%;
-  max-width: 600px;
-  padding: 20px;
-  border: 2px solid #0ff;
-  border-radius: 12px;
+// Waveform
+function drawWaveform() {
+  analyser.getByteTimeDomainData(dataArray);
+  waveformCtx.fillStyle = "#000";
+  waveformCtx.fillRect(0, 0, waveform.width, waveform.height);
+
+  waveformCtx.lineWidth = 2;
+  waveformCtx.strokeStyle = "#0ff";
+  waveformCtx.beginPath();
+
+  const sliceWidth = waveform.width / analyser.frequencyBinCount;
+  let x = 0;
+  for (let i = 0; i < analyser.frequencyBinCount; i++) {
+    const v = dataArray[i] / 128.0;
+    const y = (v * waveform.height) / 2;
+    if (i === 0) waveformCtx.moveTo(x, y);
+    else waveformCtx.lineTo(x, y);
+    x += sliceWidth;
+  }
+  waveformCtx.stroke();
+  animationId = requestAnimationFrame(drawWaveform);
 }
 
-canvas#waveform {
-  width: 100%;
-  height: 160px;
-  background-color: #000;
-  border: 1px solid #0ff;
-  background-image: linear-gradient(to right, rgba(255, 255, 0, 0.3) 1px, transparent 1px),
-                    linear-gradient(to bottom, rgba(255, 255, 0, 0.3) 1px, transparent 1px);
-  background-size: 20px 20px;
+async function startRecording() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioContext = new AudioContext();
+    source = audioContext.createMediaStreamSource(stream);
+    analyser = audioContext.createAnalyser();
+    analyser.fftSize = 2048;
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
+    source.connect(analyser);
+    drawWaveform();
+
+    const res = await fetch("https://mood-into-art-backend.onrender.com/assemblyai-token");
+    const { token } = await res.json();
+
+    socket = new WebSocket(`wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000`, []);
+
+    socket.onopen = () => {
+      const recognitionStream = audioContext.createScriptProcessor(4096, 1, 1);
+      source.connect(recognitionStream);
+      recognitionStream.connect(audioContext.destination);
+
+      recognitionStream.onaudioprocess = (e) => {
+        if (socket.readyState === WebSocket.OPEN) {
+          const floatData = e.inputBuffer.getChannelData(0);
+          const int16Data = new Int16Array(floatData.length);
+          for (let i = 0; i < floatData.length; i++) {
+            int16Data[i] = Math.max(-32768, Math.min(32767, floatData[i] * 32767));
+          }
+          socket.send(int16Data.buffer);
+        }
+      };
+    };
+
+    socket.onmessage = (msg) => {
+      const res = JSON.parse(msg.data);
+      if (res.text) {
+        activityInput.value = res.text;
+      }
+    };
+
+    isRecording = true;
+    startVoiceButton.textContent = "Stop Voice";
+    startCountdown();
+  } catch (err) {
+    alert("Microphone access denied or error: " + err.message);
+  }
 }
 
-.footer-bar {
-  display: flex;
-  justify-content: space-between;
-  font-size: 14px;
-  margin: 10px 0;
+function stopRecording() {
+  if (animationId) cancelAnimationFrame(animationId);
+  if (socket) socket.close();
+  if (stream) stream.getTracks().forEach((track) => track.stop());
+  if (audioContext) audioContext.close();
+
+  isRecording = false;
+  startVoiceButton.textContent = "Start Voice";
+  clearInterval(countdownInterval);
 }
 
-textarea,
-.button,
-select#styleSelect {
-  width: 100%;
-  background: #000;
-  border: 2px solid #0ff;
-  color: #0ff;
-  padding: 10px;
-  margin-bottom: 10px;
-  text-align: center;
-  box-sizing: border-box;
-  font-family: 'Courier New', monospace;
-  font-size: 14px;
-  text-transform: uppercase;
-}
+// Event Listeners
+startVoiceButton.addEventListener("click", () => {
+  isRecording ? stopRecording() : startRecording();
+});
 
-textarea#activityInput {
-  max-width: 100%;
-  min-height: 60px;
-  resize: none;
-  overflow-wrap: break-word;
-  font-size: 14px;
-  text-transform: none;
-}
+generateButton.addEventListener("click", () => {
+  const mood = activityInput.value.trim();
+  const style = styleSelect.value;
+  if (!mood || style === "none") {
+    alert("Please describe your mood and select a style.");
+    return;
+  }
 
-select#styleSelect {
-  text-align: center;
-  text-align-last: center;
-  -webkit-text-align-last: center;
-  -moz-text-align-last: center;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
-  background-position: right 10px center;
-  background-repeat: no-repeat;
-  padding-right: 30px;
-  padding-left: 10px;
-  line-height: normal;
-  display: block;
-  box-sizing: border-box;
-  cursor: pointer;
-}
+  const prompt = `${mood} (${styleSelect.options[styleSelect.selectedIndex].text})`;
+  const timestamp = new Date().toLocaleString();
 
-select#styleSelect option {
-  text-align: center;
-  font-family: 'Courier New', monospace;
-  font-size: 14px;
-  background: #000;
-  color: #0ff;
-  text-transform: uppercase;
-}
+  const entry = document.createElement("div");
+  entry.className = "history-entry";
+  entry.innerHTML = `
+    <div class="timestamp">${timestamp}</div>
+    <div class="entry-content" contenteditable="true">${prompt}</div>
+    <div class="entry-actions">
+      <button class="entry-btn delete-btn">✕</button>
+    </div>
+  `;
+  entry.querySelector(".delete-btn").onclick = () => entry.remove();
+  moodHistory.prepend(entry);
 
-select#styleSelect:hover {
-  background: #0ff;
-  color: #000;
-}
+  generatedImage.src = "https://via.placeholder.com/1080x1080.png?text=Generated+Image";
+  generatedImage.style.display = "block";
+});
 
-.button-group {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
+redoButton.addEventListener("click", () => {
+  activityInput.value = "";
+  styleSelect.value = "none";
+  generatedImage.style.display = "none";
+});
 
-.button {
-  cursor: pointer;
-}
-
-.button.recording {
-  background: #000 !important;
-  border-color: #ff00ff !important;
-  color: #0ff !important;
-}
-
-.button:hover {
-  background: #0ff;
-  color: #000;
-}
-
-.seven-segment {
-  font-family: 'Courier New', monospace;
-  font-size: 14px;
-}
-
-.image-frame {
-  width: 100%;
-  max-height: 400px;
-  overflow: hidden;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-top: 10px;
-}
-
-#generatedImage {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-  display: none;
-  border: 2px solid #0ff;
-}
-
-#thinking {
-  font-family: 'Courier New', monospace;
-  font-size: 14px;
-  color: #ff0;
-  text-align: center;
-  margin-top: 5px;
-  margin-bottom: 10px;
-  height: 20px;
-  display: none; /* IMPORTANT: hidden by default */
-}
-
-#moodHistory {
-  margin-top: 10px;
-  font-size: 13px;
-  color: #0ff;
-  text-align: center;
-}
-
-.history-entry {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-bottom: 6px;
-  gap: 8px;
-}
-
-.history-entry img {
-  max-width: 100px;
-  max-height: 100px;
-  object-fit: contain;
-}
-
-.history-entry button {
-  background: transparent;
-  border: 1px solid #0ff;
-  color: #0ff;
-  padding: 2px 8px;
-  cursor: pointer;
-  font-size: 12px;
-}
-
-.history-entry button:hover {
-  background: #0ff;
-  color: #000;
-}
-
-@keyframes soft-blink {
-  0% { border-color: #0ff; }
-  50% { border-color: #ffff00; }
-  100% { border-color: #0ff; }
-}
-
-select#styleSelect.blink-yellow,
-.button.blink-yellow {
-  animation: soft-blink 1.5s infinite ease-in-out !important;
-}
-
-.highlight-yellow {
-  border-color: #ffff00 !important;
-  color: #0ff;
-}
-
-#thinking.highlight-yellow {
-  color: #ffff00 !important;
-}
+saveButton.addEventListener("click", () => {
+  const image = generatedImage;
+  if (image.src) {
+    const link = document.createElement("a");
+    link.href = image.src;
+    link.download = "mood-art.png";
+    link.click();
+  }
+});
