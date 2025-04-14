@@ -1,4 +1,4 @@
-// server.js – Roy chatbot with GPT-3.5-turbo, TTS, voice transcription, CBT, DSM-awareness
+// server.js – Roy chatbot with GPT-4, TTS, voice transcription, CBT, DSM-awareness
 
 const express = require('express');
 const cors = require('cors');
@@ -17,25 +17,9 @@ const upload = multer();
 app.use(cors());
 app.use(bodyParser.json());
 
-if (!process.env.OPENAI_API_KEY) {
-  console.error('Missing OPENAI_API_KEY environment variable.');
-  process.exit(1);
-}
-
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const sessionStartTimes = new Map();
-const SESSION_CLEANUP_INTERVAL = 3600 * 1000; // Clean up sessions older than 1 hour
-
-setInterval(() => {
-  const now = Date.now();
-  for (const [sessionId, startTime] of sessionStartTimes.entries()) {
-    if (now - startTime > SESSION_CLEANUP_INTERVAL) {
-      sessionStartTimes.delete(sessionId);
-      console.log(`Cleaned up session: ${sessionId}`);
-    }
-  }
-}, SESSION_CLEANUP_INTERVAL);
 
 function createRoyPrompt(userMessage, minutesElapsed) {
   let timeNote = '';
@@ -74,24 +58,19 @@ User: ${userMessage}${timeNote}`;
 // === Chat endpoint ===
 app.post('/api/chat', async (req, res) => {
   const { message, sessionId = 'default-session' } = req.body;
-  if (!message || typeof message !== 'string') {
-    console.error('Invalid request: message is missing or not a string', req.body);
-    return res.status(400).json({ error: 'Message must be a non-empty string.' });
-  }
-
-  console.log('Received /api/chat request:', { message, sessionId });
+  if (!message) return res.status(400).json({ error: 'Message required' });
 
   let minutesElapsed = 0;
   if (!sessionStartTimes.has(sessionId)) {
     sessionStartTimes.set(sessionId, Date.now());
+  } else {
+    const startTime = sessionStartTimes.get(sessionId);
+    minutesElapsed = Math.floor((Date.now() - startTime) / 60000);
   }
-  const startTime = sessionStartTimes.get(sessionId);
-  minutesElapsed = Math.floor((Date.now() - startTime) / 60000);
 
   try {
-    const startText = Date.now();
     const chatResponse = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo', // Switched to faster model
+      model: 'gpt-4',
       messages: [
         { role: 'system', content: createRoyPrompt(message, minutesElapsed) },
         { role: 'user', content: message }
@@ -99,18 +78,15 @@ app.post('/api/chat', async (req, res) => {
       temperature: 0.7,
       max_tokens: 750
     });
-    console.log('Text generation time:', Date.now() - startText, 'ms');
 
     const royText = chatResponse.choices[0].message.content;
 
-    const startAudio = Date.now();
     const speechResponse = await openai.audio.speech.create({
-      model: 'tts-1', // Switched to faster model
+      model: 'tts-1-hd',
       voice: 'onyx',
       speed: 1.0,
       input: royText
     });
-    console.log('Audio generation time:', Date.now() - startAudio, 'ms');
 
     const audioBuffer = Buffer.from(await speechResponse.arrayBuffer());
 
@@ -121,43 +97,29 @@ app.post('/api/chat', async (req, res) => {
     });
   } catch (err) {
     console.error('Roy error:', err.message || err);
-    if (err.message.includes('429')) {
-      res.status(429).json({ error: 'Rate limit exceeded. Please try again later.' });
-    } else {
-      res.status(500).json({ error: 'Roy failed to respond.' });
-    }
+    res.status(500).json({ error: 'Roy failed to respond.' });
   }
 });
 
 // === Transcription endpoint ===
 app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
   try {
-    if (!req.file) {
-      console.error('No audio file provided in request');
-      return res.status(400).json({ error: 'No audio file received.' });
-    }
+    if (!req.file) return res.status(400).json({ error: 'No audio file received.' });
 
     const tempPath = path.join(os.tmpdir(), `temp-${Date.now()}.webm`);
     fs.writeFileSync(tempPath, req.file.buffer);
-    console.log('Audio file saved for transcription:', tempPath, req.file.size);
 
-    const startTranscription = Date.now();
     const transcript = await openai.audio.transcriptions.create({
       file: fs.createReadStream(tempPath),
       model: 'whisper-1',
       response_format: 'json'
     });
-    console.log('Transcription time:', Date.now() - startTranscription, 'ms');
 
     fs.unlinkSync(tempPath);
     res.json({ text: transcript.text });
   } catch (err) {
     console.error('Transcription error:', err.message || err);
-    if (err.message.includes('429')) {
-      res.status(429).json({ error: 'Rate limit exceeded for transcription.' });
-    } else {
-      res.status(500).json({ error: 'Transcription failed.' });
-    }
+    res.status(500).json({ error: 'Transcription failed.' });
   }
 });
 
