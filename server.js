@@ -124,6 +124,7 @@ app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
 });
 
 
+
 // === Image Generation endpoint ===
 app.post('/generate-image', async (req, res) => {
   const { prompt, style } = req.body;
@@ -132,22 +133,24 @@ app.post('/generate-image', async (req, res) => {
   }
 
   try {
-    const response = await openai.images.generate({
-      model: 'dall-e-3',
+    const imageResponse = await openai.images.generate({
+      model: "dall-e-3",
       prompt: `${prompt}, in ${style} style`,
       n: 1,
-      size: '512x512'
+      size: "1024x1024"
     });
 
-    res.json({ image: response.data[0].url });
+    const imageUrl = imageResponse.data[0]?.url;
+    if (!imageUrl) throw new Error('No image URL returned');
+
+    res.json({ image: imageUrl });
   } catch (err) {
-    console.error('Image generation error:', err);
+    console.error('Image generation error:', err.message || err);
     res.status(500).json({ error: 'Image generation failed' });
   }
 });
 
 
-const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`✅ Roy server running on port ${PORT}`);
 });
