@@ -123,6 +123,30 @@ app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
   }
 });
 
+
+// === Image Generation endpoint ===
+app.post('/generate-image', async (req, res) => {
+  const { prompt, style } = req.body;
+  if (!prompt || !style) {
+    return res.status(400).json({ error: 'Prompt and style required' });
+  }
+
+  try {
+    const response = await openai.images.generate({
+      model: 'dall-e-3',
+      prompt: `${prompt}, in ${style} style`,
+      n: 1,
+      size: '512x512'
+    });
+
+    res.json({ image: response.data[0].url });
+  } catch (err) {
+    console.error('Image generation error:', err);
+    res.status(500).json({ error: 'Image generation failed' });
+  }
+});
+
+
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`✅ Roy server running on port ${PORT}`);
