@@ -268,7 +268,13 @@
 </head>
 <body>
   <div class="container">
-    <canvas id="waveform"></canvas>
+    
+    <div class="button-group">
+      <button id="login" class="button">LOGIN</button>
+      <button id="logout" class="button" style="display: none;">LOGOUT</button>
+    </div>
+    
+<canvas id="waveform"></canvas>
     <div class="footer-bar">
       <span class="seven-segment" id="currentTime"></span>
       <span class="seven-segment" id="countdownTimer">00:60</span>
@@ -306,6 +312,7 @@
     <div class="button-group">
       <button id="save" class="button">SAVE</button>
       <button id="synthcalmHome" class="button">SYNTHCALM HOME</button>
+<button id="saveMood" class="button">SAVE LOG</button>
     </div>
     <div id="thinking">GENERATING...</div>
     <div class="divider"></div>
