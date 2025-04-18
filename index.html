@@ -11,45 +11,7 @@
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   </script>
 
-  <script>
-    document.addEventListener('DOMContentLoaded', async () => {
-      const loginButton = document.getElementById('login');
-      const logoutButton = document.getElementById('logout');
-
-      // Check auth state
-      const { data: { session } } = await supabase.auth.getSession();
-      toggleAuthButtons(session);
-
-      // Handle login
-      loginButton.addEventListener('click', async () => {
-        const email = prompt("Enter your email:");
-        if (!email) return;
-        const { error } = await supabase.auth.signInWithOtp({ email });
-        if (error) {
-          alert('Login failed. Check the email and try again.');
-          console.error(error);
-        } else {
-          alert('Check your email for the login link!');
-        }
-      });
-
-      // Handle logout
-      logoutButton.addEventListener('click', async () => {
-        await supabase.auth.signOut();
-        toggleAuthButtons(null);
-      });
-
-      // Recheck auth on change
-      supabase.auth.onAuthStateChange((_event, session) => {
-        toggleAuthButtons(session);
-      });
-
-      function toggleAuthButtons(session) {
-        document.getElementById('login').style.display = session ? 'none' : 'inline-block';
-        document.getElementById('logout').style.display = session ? 'inline-block' : 'none';
-      }
-    });
-  </script>
+  
 
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -269,11 +231,7 @@
 <body>
   <div class="container">
     
-    <div class="button-group">
-      <button id="login" class="button">LOGIN</button>
-      <button id="logout" class="button" style="display: none;">LOGOUT</button>
-    </div>
-    
+        
 <canvas id="waveform"></canvas>
     <div class="footer-bar">
       <span class="seven-segment" id="currentTime"></span>
