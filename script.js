@@ -2,9 +2,9 @@
 
 window.addEventListener('DOMContentLoaded', async () => {
   const micBtn = document.getElementById('startVoice');
-  const redoBtn = document.getElementById('redo');
-  const generateBtn = document.getElementById('generate');
-  const saveBtn = document.getElementById('saveImage');
+  
+  
+  
   const styleSelect = document.getElementById('styleSelect');
   const moodInput = document.getElementById('activityInput');
   const imageEl = document.getElementById('generatedImage');
@@ -122,20 +122,20 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  generateBtn.addEventListener('click', () => {
+  /* Removed unused generateBtn handler */
     const prompt = moodInput.value.trim();
     const style = styleSelect.value;
     if (!prompt || !style) return;
     generateImage(prompt, style);
   });
 
-  redoBtn.addEventListener('click', () => {
+  /* Removed unused redoBtn handler */
     moodInput.value = '';
     imageEl.src = '';
     saveBtn.disabled = true;
   });
 
-  saveBtn.addEventListener('click', () => {
+  /* Removed unused saveBtn handler */
     const moodText = moodInput.value.trim();
     const timestamp = new Date().toISOString().replace('T', ' ').slice(0, 19);
     const div = document.createElement('div');
